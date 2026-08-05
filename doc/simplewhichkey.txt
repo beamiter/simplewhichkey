@@ -1,0 +1,213 @@
+*simplewhichkey.txt*  Live key hints for every prefix          *simplewhichkey*
+
+Author:  beamiter
+License: MIT
+
+==============================================================================
+CONTENTS                                             *simplewhichkey-contents*
+
+    1. Introduction .............. |simplewhichkey-introduction|
+    2. Requirements .............. |simplewhichkey-requirements|
+    3. How it works .............. |simplewhichkey-mechanics|
+    4. Using the panel ........... |simplewhichkey-panel|
+    5. Options ................... |simplewhichkey-options|
+    6. Descriptions .............. |simplewhichkey-descriptions|
+    7. Commands .................. |simplewhichkey-commands|
+    8. Functions ................. |simplewhichkey-functions|
+    9. Highlights ................ |simplewhichkey-highlights|
+   10. Limits .................... |simplewhichkey-limits|
+
+==============================================================================
+1. INTRODUCTION                                  *simplewhichkey-introduction*
+
+SimpleWhichKey shows what may follow a prefix key.  Pause after <C-w> and a
+panel lists every window command; pause after the leader, "g", "z", "[", "]",
+'"' or "`" and the same happens.  Keep typing at your usual speed and the panel
+never appears.
+
+Three sources feed one panel:
+
+    Vim's built-in commands   <C-w>v, gU, zt and friends are not mappings, so
+                              they cannot be discovered; the plugin carries
+                              description tables for them.
+    Your mappings             found with |maplist()| every time the panel
+                              opens, including buffer-local ones, with a
+                              description derived from the right hand side
+                              when you have not written one.
+    The live editor state     the registers that hold something and the marks
+                              that are set, listed under '"', "'" and "`".
+
+==============================================================================
+2. REQUIREMENTS                                  *simplewhichkey-requirements*
+
+Vim 9.1 or newer, compiled with |+popupwin|, |+textprop| and |+timers|.
+No external program, no daemon, no other plugin.
+
+==============================================================================
+3. HOW IT WORKS                                     *simplewhichkey-mechanics*
+
+    1. Every configured prefix is mapped to: >
+        <Cmd>call simplewhichkey#Start(...)<CR>
+<    2. Start() waits |g:simplewhichkey_delay| milliseconds.  If the next key
+       arrives while waiting, no panel is drawn.
+    3. Otherwise the panel opens and keys are read with |getcharstr()| until
+       the sequence stops being a prefix.
+    4. The sequence is replayed with |feedkeys()|.  The hooks are removed for
+       the duration of the replay, which is what stops it from re-entering the
+       panel, and restored as soon as Vim is idle again.
+
+Because step 4 replays the keys instead of interpreting them, mappings keep
+their own semantics: <expr>, <ScriptCmd>, <Plug>, buffer-local, |:map-silent|,
+counts and registers all behave as they would without the plugin.
+
+When other mappings extend a prefix, Vim itself waits 'timeoutlen' before
+dispatching it, so the panel opens without further delay.  A shorter
+'timeoutlen' (400ms is comfortable) therefore makes the leader panel feel
+faster.
+
+==============================================================================
+4. USING THE PANEL                                      *simplewhichkey-panel*
+
+    a listed key        choose it; a group opens the next level
+    an unlisted key     replayed as typed, so the panel never blocks a key
+    <BS>                back one level
+    <Esc>, CTRL-C       close the panel and run nothing
+
+Entries whose description starts with "+" are groups: more keys follow.
+
+==============================================================================
+5. OPTIONS                                            *simplewhichkey-options*
+
+                                                 *g:simplewhichkey_prefixes*
+Which prefixes open a panel, per mode.  Only "n", "x" and "o" are used. >
+    let g:simplewhichkey_prefixes = {
+          \ 'n': ['<leader>', '<localleader>', 'g', 'z', 'Z', '<C-w>',
+          \       '[', ']', '"', "'", '`'],
+          \ 'x': ['<leader>', '<localleader>', 'g', 'z', '[', ']',
+          \       '"', "'", '`'],
+          \ }
+<
+A prefix that is already mapped by you is left alone.
+
+                                                    *g:simplewhichkey_enable*
+Set to 0 to keep the plugin loaded but out of the way.  Default 1.
+
+                                                     *g:simplewhichkey_delay*
+Milliseconds to wait before drawing the panel, for prefixes Vim dispatches
+immediately.  Default 200.
+
+                                                  *g:simplewhichkey_position*
+"bottom" (default), "top" or "center".
+
+                                                 *g:simplewhichkey_separator*
+Text between key and description.  Default " -> " (an arrow).
+
+                                                *g:simplewhichkey_max_height*
+Maximum panel height in lines.  0 (default) means half the screen.
+
+                                            *g:simplewhichkey_max_desc_width*
+Longest description before it is shortened.  Default 30.  Descriptions shrink
+further when the panel would otherwise not fit.
+
+                                                      *g:simplewhichkey_sort*
+"key" (default) or "group" to list groups first.
+
+                                                    *g:simplewhichkey_border*
+Draw a border around the panel.  Default 1.
+
+                                             *g:simplewhichkey_show_builtins*
+List Vim's own commands under <C-w>, g, z, [ and ].  Default 1.
+
+                                             *g:simplewhichkey_hide_aliases*
+Hide a built-in Ctrl variant when a plain key with the same meaning is already
+listed, for example <C-w><C-v> next to <C-w>v.  Default 1.
+
+                                                    *g:simplewhichkey_ignore*
+Key sequences to leave out of the panel.  They keep working; they are only
+hidden. >
+    let g:simplewhichkey_ignore = ['<leader>1', '<leader>2']
+<
+==============================================================================
+6. DESCRIPTIONS                                  *simplewhichkey-descriptions*
+
+Descriptions are optional.  A mapping to <Cmd>SimpleGitDiff<CR> is listed as
+"SimpleGitDiff" and a mapping to <Plug>(simpletree-toggle) as
+"simpletree-toggle".
+
+The flat form names sequences directly; a description starting with "+" names
+a group: >
+    call simplewhichkey#Describe({
+          \ '<leader>f':  '+file',
+          \ '<leader>ff': 'find files',
+          \ })
+<
+The nested form matches the dictionary vim-which-key used, so an existing
+g:which_key_map can be reused unchanged: >
+    call simplewhichkey#Register('<leader>', 'g:which_key_map', 'n')
+<
+Both accept a mode as the last argument, "n" by default.
+
+==============================================================================
+7. COMMANDS                                          *simplewhichkey-commands*
+
+                                                              *:SimpleWhichKey*
+:SimpleWhichKey [prefix]    Open the panel for [prefix], default the leader.
+
+                                                        *:SimpleWhichKeyVisual*
+:SimpleWhichKeyVisual [prefix]
+                            The same, listing visual mode mappings.
+
+                                                       *:SimpleWhichKeyRefresh*
+:SimpleWhichKeyRefresh      Take the configured prefixes again.  Needed after
+                            changing 'mapleader' or |g:simplewhichkey_prefixes|
+                            at runtime.
+
+                                *:SimpleWhichKeyToggle* *:SimpleWhichKeyEnable*
+                                                      *:SimpleWhichKeyDisable*
+:SimpleWhichKeyToggle       Hints on/off.
+
+                                                        *:SimpleWhichKeyHealth*
+:SimpleWhichKeyHealth       Report the state of every hooked prefix: whether
+                            the hook is in place or taken by another mapping,
+                            and how many mappings and built-ins it lists.
+
+==============================================================================
+8. FUNCTIONS                                        *simplewhichkey-functions*
+
+simplewhichkey#Keys({mode}, {prefix})                  *simplewhichkey#Keys()*
+        What the panel would list for {prefix}, as a dictionary of key to
+        {desc, group, source}.  The quickest way to check a configuration: >
+            :echo simplewhichkey#Keys('n', '<C-w>')
+<
+simplewhichkey#Describe({dict} [, {mode}])         *simplewhichkey#Describe()*
+simplewhichkey#Register({prefix}, {spec} [, {mode}])
+                                                   *simplewhichkey#Register()*
+simplewhichkey#Forget()                              *simplewhichkey#Forget()*
+        See |simplewhichkey-descriptions|.  Forget() drops every registered
+        description.
+
+simplewhichkey#Start({prefix} [, {mode}])             *simplewhichkey#Start()*
+        Open the panel for {prefix}.  This is what the hooks call.
+
+==============================================================================
+9. HIGHLIGHTS                                      *simplewhichkey-highlights*
+
+    SimpleWhichKeyNormal        panel background         (Normal)
+    SimpleWhichKeyBorder        border                   (Comment)
+    SimpleWhichKeyKey           the key itself           (Identifier)
+    SimpleWhichKeyDesc          description of a key     (Normal)
+    SimpleWhichKeyGroup         description of a group   (Function)
+    SimpleWhichKeySeparator     text between the two     (Comment)
+
+==============================================================================
+10. LIMITS                                             *simplewhichkey-limits*
+
+- Insert and command-line mode are not hooked.
+- A prefix already mapped by the user is not taken over.
+- |:normal| without "!" in a script goes through the replay, so those keys run
+  after the :normal command finishes rather than inside it.  Script code should
+  use :normal! anyway.
+- Operator-pending mode is off by default; add "o" to
+  |g:simplewhichkey_prefixes| to hint there too.
+
+vim:tw=78:ts=8:noet:ft=help:norl:
