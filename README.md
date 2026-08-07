@@ -30,6 +30,11 @@ hand side when you have not written one. A fresh configuration is useful
 immediately, and stays useful as you add mappings, without a second list to
 maintain.
 
+On narrow terminals or deliberately short panels, choices that do not fit are
+kept on numbered pages instead of being discarded. Scroll the mouse wheel while
+the panel is open, or use `<PageUp>` / `<PageDown>`, to move between pages.
+An explicit mapping for either Page key still wins at that level.
+
 ## Install
 
 With [SimplePlug](https://github.com/beamiter/simpleplug), vim-plug, or any
@@ -73,6 +78,8 @@ is a good companion setting.
 | any listed key | choose it; groups open the next level |
 | any unlisted key | replayed as typed, so nothing is ever blocked |
 | `<BS>` | back one level |
+| `<PageUp>` / `<PageDown>` | previous/next overflow page, unless explicitly mapped |
+| mouse wheel | previous/next page when the current level overflows |
 | `<Esc>` / `<C-c>` | close, run nothing |
 
 ## Configuration

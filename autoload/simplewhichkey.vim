@@ -620,6 +620,15 @@ export def Start(prefix: string, mode: string = 'n')
         aborted = true
         break
       endif
+      var page = simplewhichkey#keys#PageDirection(char)
+      if page != 0 && !has_key(level, char) && simplewhichkey#panel#Scroll(page)
+        continue
+      endif
+      var scroll = simplewhichkey#keys#ScrollDirection(char)
+      if scroll != 0
+        simplewhichkey#panel#Scroll(scroll)
+        continue
+      endif
       if simplewhichkey#keys#IsMouse(char)
         continue
       endif

@@ -71,9 +71,16 @@ faster.
     a listed key        choose it; a group opens the next level
     an unlisted key     replayed as typed, so the panel never blocks a key
     <BS>                back one level
+    <PageUp>/<PageDown> previous/next overflow page; an explicit mapping wins
+    mouse wheel         previous/next page when this level overflows
     <Esc>, CTRL-C       close the panel and run nothing
 
 Entries whose description starts with "+" are groups: more keys follow.
+When the grid cannot fit every entry, its title shows [page/total PgUp/PgDn].
+Use those keys or the mouse wheel to visit every page.  An explicit PageUp or
+PageDown mapping at the current level takes precedence over paging, so it is
+never hidden; the keyboard fallback also works in terminal Vim with 'mouse'
+disabled.
 
 ==============================================================================
 5. OPTIONS                                            *simplewhichkey-options*

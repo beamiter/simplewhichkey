@@ -26,6 +26,10 @@ nnoremap <silent> <leader>fr <Cmd>let g:hit = 'recent'<CR>
 xnoremap <silent> <leader>fg <Cmd>let g:hit = 'grep'<CR>
 nnoremap <silent> <leader>w= <C-w>=
 nnoremap <silent> <leader>i A
+for key in split('abcdefghijklmnopqrst', '\zs')
+  execute $"nnoremap <silent> Z{key} <Cmd>let g:hit = 'overflow-{key}'<CR>"
+endfor
+nnoremap <silent> Z<PageDown> <Cmd>let g:hit = 'explicit-page-mapping'<CR>
 
 def PanelVisible(): bool
   return !empty(popup_list())
@@ -92,6 +96,49 @@ var steps = [
     assert_false(PanelVisible(), '<Esc> closes the panel')
     assert_equal('', g:hit, '<Esc> runs nothing')
     assert_true(Hooked(), 'hooks kept after abort')
+  },
+
+  # --- overflow pages work in a terminal with no mouse --------------------
+  () => {
+    g:simplewhichkey_max_height = 1
+    Type('z')
+  },
+  () => {
+    assert_true(PanelVisible(), 'overflow panel after z')
+    assert_match('\[1/[2-9][0-9]* PgUp/PgDn\]', PanelTitle())
+    Type("\<PageDown>")
+  },
+  () => {
+    assert_match('\[2/[2-9][0-9]* PgUp/PgDn\]', PanelTitle(),
+      'PageDown did not redraw the next page')
+    Type("\<PageUp>")
+  },
+  () => {
+    assert_match('\[1/[2-9][0-9]* PgUp/PgDn\]', PanelTitle(),
+      'PageUp did not redraw the previous page')
+    Type("\<Esc>")
+  },
+  () => {
+    assert_false(PanelVisible(), 'overflow panel closed after Esc')
+    g:simplewhichkey_max_height = 0
+  },
+
+  # An explicit Page key mapping at this level wins over the fallback control.
+  () => {
+    g:simplewhichkey_max_height = 1
+    Type('Z')
+  },
+  () => {
+    assert_true(PanelVisible(), 'custom overflow panel after Z')
+    assert_match('PgUp/PgDn', PanelTitle())
+    Type("\<PageDown>")
+  },
+  () => {
+    assert_false(PanelVisible(), 'explicit PageDown mapping closes the panel')
+    assert_equal('explicit-page-mapping', g:hit,
+      'paging fallback hid an explicit PageDown mapping')
+    g:hit = ''
+    g:simplewhichkey_max_height = 0
   },
 
   # --- typing through the prefix never shows the panel ---------------------

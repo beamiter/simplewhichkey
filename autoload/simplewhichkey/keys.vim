@@ -101,3 +101,32 @@ enddef
 export def IsMouse(raw: string): bool
   return Label(raw) =~? 'mouse\|scrollwheel\|drag\|release'
 enddef
+
+
+# Mouse events were already consumed by the panel rather than replayed.  Give
+# vertical (and tilt-wheel horizontal) scroll events a useful meaning without
+# reserving any keyboard key that could be part of a user's mapping.
+export def ScrollDirection(raw: string): number
+  var label = Label(raw)
+  if label =~? '^<ScrollWheel\(Up\|Left\)>$'
+    return -1
+  endif
+  if label =~? '^<ScrollWheel\(Down\|Right\)>$'
+    return 1
+  endif
+  return 0
+enddef
+
+# Keyboard fallback for terminals where 'mouse' is empty.  The caller only
+# treats these as paging controls when the current which-key level does not
+# itself define that key, so an explicit mapping always wins.
+export def PageDirection(raw: string): number
+  var label = Label(raw)
+  if label ==# '<PageUp>'
+    return -1
+  endif
+  if label ==# '<PageDown>'
+    return 1
+  endif
+  return 0
+enddef

@@ -15,6 +15,9 @@ const PROP_GROUP = 'simplewhichkey_group'
 
 var popup_id = 0
 var props_ready = false
+var current_title = ''
+var current_page = 0
+var current_pages = 1
 
 def EnsureProps()
   if props_ready
@@ -111,9 +114,9 @@ const GAP = 2
 const MIN_DESC_WIDTH = 10
 
 # Pick a grid.  Start from the width a description would like to have, add
-# columns while the panel is taller than it may be, and only once columns have
-# run out give up and truncate.  Descriptions shrink before entries disappear.
-def Layout(entries: list<dict<any>>, available: number): list<dict<any>>
+# columns while the panel is taller than it may be, and page only after columns
+# run out.  Descriptions shrink before a second page becomes necessary.
+def Layout(entries: list<dict<any>>, available: number, requested_page: number): dict<any>
   var separator = get(g:, 'simplewhichkey_separator', ' → ')
   var separator_width = strdisplaywidth(separator)
   var key_width = 0
@@ -143,27 +146,25 @@ def Layout(entries: list<dict<any>>, available: number): list<dict<any>>
   var desc_width = max([MIN_DESC_WIDTH, min([natural_desc, cell_width - key_width - separator_width])])
   cell_width = key_width + separator_width + desc_width
 
-  var truncated = 0
   if height > max_height
     height = max_height
-    var capacity = height * columns
-    if total > capacity
-      truncated = total - capacity + 1
-    endif
   endif
 
+  # Narrow terminals used to replace everything beyond the first grid with a
+  # dead "N more" cell.  Keep the same bounded popup, but retain every entry
+  # in pages that can be reached with the mouse wheel (an event the panel loop
+  # already consumed rather than replayed).
+  var capacity = max([1, height * columns])
+  var pages = max([1, (total + capacity - 1) / capacity])
+  var page = min([pages - 1, max([0, requested_page])])
+  var first = page * capacity
+  var last = min([total - 1, first + capacity - 1])
+
   var cells: list<dict<any>> = []
-  var shown = truncated > 0 ? entries[0 : height * columns - 2] : entries
+  var shown = entries[first : last]
   for entry in shown
     add(cells, Cell(entry, key_width, desc_width, separator))
   endfor
-  if truncated > 0
-    add(cells, Cell(
-      {label: '…', desc: printf('%d more', truncated), group: false},
-      key_width,
-      desc_width,
-      separator))
-  endif
 
   # Column major: reading down a column follows the sort order.
   var lines: list<dict<any>> = []
@@ -193,7 +194,7 @@ def Layout(entries: list<dict<any>>, available: number): list<dict<any>>
       add(lines, {text: text, props: filter(props, (_, p) => p.length > 0)})
     endif
   endfor
-  return lines
+  return {lines: lines, page: page, pages: pages}
 enddef
 
 def PopupOptions(title: string, height: number): dict<any>
@@ -235,16 +236,39 @@ export def Show(title: string, entries: list<dict<any>>)
     return
   endif
   EnsureProps()
+  if title !=# current_title
+    current_title = title
+    current_page = 0
+  endif
   var available = &columns - 6
-  var lines = Layout(SortEntries(entries), max([20, available]))
-  var options = PopupOptions(title, len(lines))
+  var layout = Layout(SortEntries(entries), max([20, available]), current_page)
+  current_page = layout.page
+  current_pages = layout.pages
+  var display_title = title
+  if current_pages > 1
+    display_title ..= printf(' [%d/%d PgUp/PgDn]', current_page + 1, current_pages)
+  endif
+  var options = PopupOptions(display_title, len(layout.lines))
   if popup_id > 0 && !empty(popup_getoptions(popup_id))
-    popup_settext(popup_id, lines)
+    popup_settext(popup_id, layout.lines)
     popup_setoptions(popup_id, options)
   else
-    popup_id = popup_create(lines, options)
+    popup_id = popup_create(layout.lines, options)
   endif
   redraw
+enddef
+
+
+export def Scroll(direction: number): bool
+  if direction == 0 || current_pages <= 1
+    return false
+  endif
+  var next = min([current_pages - 1, max([0, current_page + direction])])
+  current_page = next
+  # True means paging is active and the input should be consumed, including at
+  # a boundary. This prevents a second PageDown on the last page from being
+  # replayed as an unrelated Normal-mode command.
+  return true
 enddef
 
 export def Close()
@@ -253,6 +277,9 @@ export def Close()
     popup_id = 0
     redraw
   endif
+  current_title = ''
+  current_page = 0
+  current_pages = 1
 enddef
 
 export def Visible(): bool

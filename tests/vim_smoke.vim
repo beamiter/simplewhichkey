@@ -32,6 +32,31 @@ assert_equal("\<C-w>", simplewhichkey#keys#First("\<C-w>gf"))
 assert_true(simplewhichkey#keys#StartsWith(' ff', ' '))
 assert_false(simplewhichkey#keys#StartsWith(' ', ' '))
 assert_false(simplewhichkey#keys#StartsWith('gg', ' '))
+assert_equal(-1, simplewhichkey#keys#ScrollDirection("\<ScrollWheelUp>"))
+assert_equal(1, simplewhichkey#keys#ScrollDirection("\<ScrollWheelDown>"))
+assert_equal(0, simplewhichkey#keys#ScrollDirection('x'))
+assert_equal(-1, simplewhichkey#keys#PageDirection("\<PageUp>"))
+assert_equal(1, simplewhichkey#keys#PageDirection("\<PageDown>"))
+assert_equal(0, simplewhichkey#keys#PageDirection('x'))
+
+# A bounded panel keeps overflow entries on pages instead of dropping them.
+# Paging uses scroll events, which were already swallowed by the panel loop.
+g:simplewhichkey_max_height = 1
+var many: list<dict<any>> = []
+for nr in range(20)
+  add(many, {label: nr2char(char2nr('a') + nr), desc: 'entry-' .. nr, group: false})
+endfor
+simplewhichkey#panel#Show('Paging', many)
+var paging_popup = popup_list()[-1]
+assert_match('Paging \[1/[2-9][0-9]* PgUp/PgDn\]',
+  get(popup_getoptions(paging_popup), 'title', ''))
+assert_true(simplewhichkey#panel#Scroll(1))
+simplewhichkey#panel#Show('Paging', many)
+assert_match('Paging \[2/[2-9][0-9]* PgUp/PgDn\]',
+  get(popup_getoptions(paging_popup), 'title', ''))
+assert_true(simplewhichkey#panel#Scroll(-1))
+simplewhichkey#panel#Close()
+g:simplewhichkey_max_height = 0
 
 # ------------------------------------------------------------------ hooks ---
 
