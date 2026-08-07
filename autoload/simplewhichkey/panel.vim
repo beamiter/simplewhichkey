@@ -15,9 +15,13 @@ const PROP_GROUP = 'simplewhichkey_group'
 
 var popup_id = 0
 var props_ready = false
-var current_title = ''
+var current_level = ''
 var current_page = 0
 var current_pages = 1
+# Page position belongs to a level, not to the popup as a whole. Remember it
+# while one key sequence is active so descending into a group and pressing
+# <BS> returns to the same slice of a long parent instead of page one.
+var pages_by_level: dict<number> = {}
 
 def EnsureProps()
   if props_ready
@@ -230,20 +234,28 @@ def PopupOptions(title: string, height: number): dict<any>
   return options
 enddef
 
-export def Show(title: string, entries: list<dict<any>>)
+export def Show(title: string, entries: list<dict<any>>, level_id: string = '')
   if empty(entries)
     Close()
     return
   endif
   EnsureProps()
-  if title !=# current_title
-    current_title = title
-    current_page = 0
+  # The visible title is presentation, not identity: normal and visual mode
+  # can show the same label, and termcode spellings may render alike. Start()
+  # supplies mode + raw sequence; direct API callers fall back to the title.
+  var identity = level_id ==# '' ? title : level_id
+  if identity !=# current_level
+    if current_level !=# ''
+      pages_by_level[current_level] = current_page
+    endif
+    current_level = identity
+    current_page = get(pages_by_level, identity, 0)
   endif
   var available = &columns - 6
   var layout = Layout(SortEntries(entries), max([20, available]), current_page)
   current_page = layout.page
   current_pages = layout.pages
+  pages_by_level[identity] = current_page
   var display_title = title
   if current_pages > 1
     display_title ..= printf(' [%d/%d PgUp/PgDn]', current_page + 1, current_pages)
@@ -265,6 +277,9 @@ export def Scroll(direction: number): bool
   endif
   var next = min([current_pages - 1, max([0, current_page + direction])])
   current_page = next
+  if current_level !=# ''
+    pages_by_level[current_level] = current_page
+  endif
   # True means paging is active and the input should be consumed, including at
   # a boundary. This prevents a second PageDown on the last page from being
   # replayed as an unrelated Normal-mode command.
@@ -277,9 +292,10 @@ export def Close()
     popup_id = 0
     redraw
   endif
-  current_title = ''
+  current_level = ''
   current_page = 0
   current_pages = 1
+  pages_by_level = {}
 enddef
 
 export def Visible(): bool

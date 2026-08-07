@@ -610,7 +610,8 @@ export def Start(prefix: string, mode: string = 'n')
         pending = getcharstr(0)
       endif
       if empty(pending)
-        simplewhichkey#panel#Show(Title(sequence), Entries(level))
+        simplewhichkey#panel#Show(
+          Title(sequence), Entries(level), mode .. "\x01" .. sequence)
         pending = getcharstr()
       endif
       var char = pending

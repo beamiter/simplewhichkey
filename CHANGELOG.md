@@ -6,6 +6,9 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- Page position is now remembered per visited level for the lifetime of one
+  key sequence. Entering a group from an overflow page and pressing `<BS>`
+  returns to that page instead of resetting the parent to page one.
 - Overflow entries are now retained on numbered pages instead of being
   replaced by an inert "N more" row. The popup title reports the current page,
   and the mouse wheel moves through pages.

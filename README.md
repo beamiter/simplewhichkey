@@ -33,7 +33,9 @@ maintain.
 On narrow terminals or deliberately short panels, choices that do not fit are
 kept on numbered pages instead of being discarded. Scroll the mouse wheel while
 the panel is open, or use `<PageUp>` / `<PageDown>`, to move between pages.
-An explicit mapping for either Page key still wins at that level.
+An explicit mapping for either Page key still wins at that level. Each group
+remembers its page for the current key sequence, so entering a child and using
+`<BS>` returns to the same part of the parent instead of page one.
 
 ## Install
 
@@ -77,7 +79,7 @@ is a good companion setting.
 | --- | --- |
 | any listed key | choose it; groups open the next level |
 | any unlisted key | replayed as typed, so nothing is ever blocked |
-| `<BS>` | back one level |
+| `<BS>` | back one level, restoring that level's previous page |
 | `<PageUp>` / `<PageDown>` | previous/next overflow page, unless explicitly mapped |
 | mouse wheel | previous/next page when the current level overflows |
 | `<Esc>` / `<C-c>` | close, run nothing |

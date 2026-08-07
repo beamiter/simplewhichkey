@@ -26,6 +26,10 @@ nnoremap <silent> <leader>fr <Cmd>let g:hit = 'recent'<CR>
 xnoremap <silent> <leader>fg <Cmd>let g:hit = 'grep'<CR>
 nnoremap <silent> <leader>w= <C-w>=
 nnoremap <silent> <leader>i A
+for key in split('ABCDEFGHIJKLMNOPQRS', '\zs')
+  execute $"nnoremap <silent> <leader>{key} <Cmd>let g:hit = 'level-{key}'<CR>"
+endfor
+nnoremap <silent> <leader>Tq <Cmd>let g:hit = 'nested-page-group'<CR>
 for key in split('abcdefghijklmnopqrst', '\zs')
   execute $"nnoremap <silent> Z{key} <Cmd>let g:hit = 'overflow-{key}'<CR>"
 endfor
@@ -53,6 +57,18 @@ enddef
 
 def Hooked(): bool
   return maparg('<Space>', 'n') =~# 'simplewhichkey#Start'
+enddef
+
+def WaitFor(Cond: func(): bool, ms: number = 1000): bool
+  var waited = 0
+  while waited < ms
+    if Cond()
+      return true
+    endif
+    sleep 10m
+    waited += 10
+  endwhile
+  return Cond()
 enddef
 
 def Type(keys: string)
@@ -123,6 +139,33 @@ var steps = [
     g:simplewhichkey_max_height = 0
   },
 
+  # A parent level remembers its page while visiting a nested group.
+  () => {
+    g:simplewhichkey_max_height = 1
+    Type(' ')
+  },
+  () => {
+    assert_match('\[1/[2-9][0-9]* PgUp/PgDn\]', PanelTitle())
+    Type("\<PageDown>")
+  },
+  () => {
+    assert_match('\[2/[2-9][0-9]* PgUp/PgDn\]', PanelTitle())
+    Type('T')
+  },
+  () => {
+    assert_equal('<Space> T', PanelTitle(), 'entered the nested group')
+    Type("\<BS>")
+  },
+  () => {
+    assert_match('<Space> \[2/[2-9][0-9]* PgUp/PgDn\]', PanelTitle(),
+      '<BS> restored the parent overflow page')
+    Type("\<Esc>")
+  },
+  () => {
+    assert_false(PanelVisible(), 'page-memory panel closed after Esc')
+    g:simplewhichkey_max_height = 0
+  },
+
   # An explicit Page key mapping at this level wins over the fallback control.
   () => {
     g:simplewhichkey_max_height = 1
@@ -162,7 +205,11 @@ var steps = [
   () => assert_equal(3, line('.'), '3gg used the count'),
 
   # --- registers and marks are listed from the live state ------------------
-  () => Type('"'),
+  () => {
+    assert_true(WaitFor(() => Hooked()),
+      'hooks did not restore after the counted replay')
+    Type('"')
+  },
   () => {
     assert_true(PanelVisible(), 'panel after "')
     assert_match('register-a-content', PanelText(), 'register contents shown')

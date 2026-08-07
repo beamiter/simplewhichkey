@@ -46,12 +46,28 @@ var many: list<dict<any>> = []
 for nr in range(20)
   add(many, {label: nr2char(char2nr('a') + nr), desc: 'entry-' .. nr, group: false})
 endfor
-simplewhichkey#panel#Show('Paging', many)
+simplewhichkey#panel#Show('Paging', many, "n\x01z")
 var paging_popup = popup_list()[-1]
 assert_match('Paging \[1/[2-9][0-9]* PgUp/PgDn\]',
   get(popup_getoptions(paging_popup), 'title', ''))
 assert_true(simplewhichkey#panel#Scroll(1))
-simplewhichkey#panel#Show('Paging', many)
+simplewhichkey#panel#Show('Paging', many, "n\x01z")
+assert_match('Paging \[2/[2-9][0-9]* PgUp/PgDn\]',
+  get(popup_getoptions(paging_popup), 'title', ''))
+# Mode and raw sequence, not the rendered title, identify a level.
+simplewhichkey#panel#Show('Paging', many, "x\x01z")
+assert_match('Paging \[1/[2-9][0-9]* PgUp/PgDn\]',
+  get(popup_getoptions(paging_popup), 'title', ''))
+simplewhichkey#panel#Show('Paging', many, "n\x01z")
+assert_match('Paging \[2/[2-9][0-9]* PgUp/PgDn\]',
+  get(popup_getoptions(paging_popup), 'title', ''))
+# A child level starts at its first page, and returning to the parent restores
+# the page the user was scanning rather than jumping back to its beginning.
+simplewhichkey#panel#Show('Paging child', [
+  {label: 'x', desc: 'child entry', group: false},
+], "n\x01zg")
+assert_match('Paging child', get(popup_getoptions(paging_popup), 'title', ''))
+simplewhichkey#panel#Show('Paging', many, "n\x01z")
 assert_match('Paging \[2/[2-9][0-9]* PgUp/PgDn\]',
   get(popup_getoptions(paging_popup), 'title', ''))
 assert_true(simplewhichkey#panel#Scroll(-1))
