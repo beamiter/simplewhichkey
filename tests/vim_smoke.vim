@@ -86,12 +86,61 @@ assert_match('simplewhichkey#Start', maparg('<Space>', 'n'))
 assert_match('simplewhichkey#Start', maparg('<C-w>', 'n'))
 assert_match('simplewhichkey#Start', maparg('g', 'n'))
 assert_match('simplewhichkey#Start', maparg('<Space>', 'x'))
+assert_match('simplewhichkey#OperatorHook', maparg('g', 'o'))
+
+# A local mapping may shadow the plugin's global hook. Disable must still find
+# and remove that hidden hook while retaining the local mapping.
+enew
+setlocal buftype=nofile bufhidden=hide noswapfile
+silent file SimpleWhichKeyLocalShadow
+var local_shadow_buf = bufnr()
+onoremap <buffer> g iw
+var shadow_health = split(execute('SimpleWhichKeyHealth'), "\n")
+var operator_health = index(shadow_health, '  mode o')
+assert_true(operator_health >= 0)
+assert_match('g\s\+hooked', shadow_health[operator_health + 1],
+  'Health reports global hook ownership below a local omap')
+simplewhichkey#Disable()
+assert_equal('iw', maparg('g', 'o'))
+enew
+setlocal buftype=nofile bufhidden=hide noswapfile
+silent file SimpleWhichKeyGlobalProbe
+var global_probe_buf = bufnr()
+assert_notequal(local_shadow_buf, global_probe_buf)
+assert_equal('', maparg('g', 'o'), 'disabled global hook was removed below a local omap')
+execute 'buffer ' .. local_shadow_buf
+assert_equal('iw', maparg('g', 'o'), 'Disable preserved the local omap')
+ounmap <buffer> g
+simplewhichkey#Enable()
+assert_match('simplewhichkey#OperatorHook', maparg('g', 'o'))
+
+# Conversely, a local mapping hiding a user-owned global mapping must not make
+# Enable treat that global slot as free and overwrite it.
+simplewhichkey#Disable()
+onoremap g iw
+onoremap <buffer> g aw
+simplewhichkey#Enable()
+assert_equal('aw', maparg('g', 'o'))
+shadow_health = split(execute('SimpleWhichKeyHealth'), "\n")
+operator_health = index(shadow_health, '  mode o')
+assert_match('g\s\+taken by another mapping',
+  shadow_health[operator_health + 1],
+  'Health reports the hidden global user omap as taken')
+execute 'buffer ' .. global_probe_buf
+assert_equal('iw', maparg('g', 'o'), 'Enable preserved a hidden global user omap')
+ounmap g
+execute 'buffer ' .. local_shadow_buf
+ounmap <buffer> g
+simplewhichkey#Setup()
+assert_match('simplewhichkey#OperatorHook', maparg('g', 'o'))
+assert_equal(2, exists(':SimpleWhichKeyOperator'))
 # Hooking a prefix must not disturb the mappings that live under it.
 assert_equal("<Cmd>echo 'files'<CR>", maparg('<Space>ff', 'n'))
 
 simplewhichkey#Disable()
 assert_equal('', maparg('<Space>', 'n'))
 assert_equal('', maparg('g', 'n'))
+assert_equal('', maparg('g', 'o'))
 assert_equal("<Cmd>echo 'files'<CR>", maparg('<Space>ff', 'n'))
 simplewhichkey#Enable()
 assert_match('simplewhichkey#Start', maparg('<Space>', 'n'))
@@ -103,6 +152,16 @@ assert_equal("<Cmd>echo 'mine'<CR>", maparg('Z', 'n'))
 nunmap Z
 simplewhichkey#Setup()
 assert_match('simplewhichkey#Start', maparg('Z', 'n'))
+
+# An exact user operator mapping owns its prefix slot. Removing it and
+# refreshing restores the default operator-pending hook.
+simplewhichkey#Disable()
+onoremap g iw
+simplewhichkey#Enable()
+assert_equal('iw', maparg('g', 'o'))
+ounmap g
+simplewhichkey#Setup()
+assert_match('simplewhichkey#OperatorHook', maparg('g', 'o'))
 
 # ------------------------------------------------------------------ level ---
 
@@ -132,6 +191,11 @@ g:simplewhichkey_hide_aliases = 1
 var visual = simplewhichkey#Keys('x', '<leader>')
 assert_equal(['f'], keys(visual))
 assert_true(visual.f.group)
+
+var operator_g = simplewhichkey#Keys('o', 'g')
+assert_equal('first-line', operator_g.g.desc)
+assert_equal('previous-word-end', operator_g.e.desc)
+assert_equal('last-screen-column', operator_g['$'].desc)
 
 # Built-in commands and mappings share one panel.
 nnoremap <silent> gh <Cmd>echo 'hunk'<CR>

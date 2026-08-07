@@ -66,6 +66,10 @@ enddef
 const DEFAULT_PREFIXES = {
   n: ['<leader>', '<localleader>', 'g', 'z', 'Z', '<C-w>', '[', ']', '"', "'", '`'],
   x: ['<leader>', '<localleader>', 'g', 'z', '[', ']', '"', "'", '`'],
+  # Motions beginning with g/[ /] are easy to forget after an operator. The
+  # expr hook keeps Vim's original operator/count/register state live; exact
+  # user omaps still win their prefix slots.
+  o: ['g', '[', ']'],
 }
 
 g:simplewhichkey_enable = Flag(get(g:, 'simplewhichkey_enable', 1), 1)
@@ -85,6 +89,7 @@ g:simplewhichkey_ignore = type(configured_ignore) == v:t_list ? configured_ignor
 
 command! -nargs=? SimpleWhichKey simplewhichkey#Show(<q-args>)
 command! -nargs=? SimpleWhichKeyVisual simplewhichkey#Show(<q-args>, 'x')
+command! -nargs=? SimpleWhichKeyOperator simplewhichkey#Show(<q-args>, 'o')
 command! SimpleWhichKeyRefresh simplewhichkey#Setup()
 command! SimpleWhichKeyToggle simplewhichkey#Toggle()
 command! SimpleWhichKeyEnable simplewhichkey#Enable()

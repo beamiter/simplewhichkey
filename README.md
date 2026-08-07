@@ -28,7 +28,10 @@ SimpleWhichKey carries description tables for Vim's built-in prefixes, discovers
 mappings with `maplist()` on the fly, and derives a description from the right
 hand side when you have not written one. A fresh configuration is useful
 immediately, and stays useful as you add mappings, without a second list to
-maintain.
+maintain. The same hints now stay available after an operator: pause in `dg`,
+`d[` or `d]` and choose the motion without losing the pending operator or
+count. Named registers and Vim's current default-register behavior are carried
+through the replay as well.
 
 On narrow terminals or deliberately short panels, choices that do not fit are
 kept on numbered pages instead of being discarded. Scroll the mouse wheel while
@@ -56,18 +59,22 @@ Nothing to build. Requires Vim 9.1 with `+popupwin`, `+textprop` and `+timers`.
 
 ## How it works
 
-1. Each configured prefix is mapped to `<Cmd>call simplewhichkey#Start(...)<CR>`.
-2. `Start()` waits `g:simplewhichkey_delay` milliseconds. If the next key arrives
-   while waiting, nothing is drawn — muscle memory is never interrupted.
+1. Normal/Visual prefixes enter `Start()` through `<Cmd>`; operator prefixes use
+   a recursive `<expr>` hook that leaves Vim's pending operator live.
+2. The selector waits `g:simplewhichkey_delay` milliseconds. If the next key
+   arrives while waiting, nothing is drawn — muscle memory is never interrupted.
 3. Otherwise the panel opens and keys are read until the sequence stops being a
    prefix.
-4. The collected sequence is replayed with `feedkeys()`, with the hooks removed
-   for the duration so the replay cannot re-enter the panel.
+4. Normal/Visual sequences are replayed with `feedkeys()`. An operator motion is
+   returned directly from its expression mapping. Hooks are suspended for both
+   paths so replay cannot re-enter the panel.
 
 Step 4 is why mappings keep behaving exactly as they would without the plugin:
 the keys are handed back to Vim as typed rather than interpreted here, so
-`<expr>`, `<ScriptCmd>`, `<Plug>`, buffer-local and silent mappings, counts and
-registers all work — Vim resolves them, not this plugin.
+`<expr>`, `<ScriptCmd>`, `<Plug>`, recursive, buffer-local and silent mappings,
+counts and registers all work — Vim resolves them, not this plugin. Operator
+selection never cancels or reconstructs the pending state, so `g@` callbacks
+and `unnamed`/`unnamedplus` mirroring remain native too.
 
 When a prefix has other mappings under it, Vim already waits `'timeoutlen'`
 before dispatching, so the panel opens with no further delay. `set timeoutlen=400`
@@ -91,6 +98,7 @@ is a good companion setting.
 let g:simplewhichkey_prefixes = {
       \ 'n': ['<leader>', '<localleader>', 'g', 'z', 'Z', '<C-w>', '[', ']', '"', "'", '`'],
       \ 'x': ['<leader>', '<localleader>', 'g', 'z', '[', ']', '"', "'", '`'],
+      \ 'o': ['g', '[', ']'],
       \ }
 
 let g:simplewhichkey_delay = 200        " ms before the panel opens
@@ -136,6 +144,7 @@ Both take a mode as their last argument (`'n'` by default, `'x'` for visual).
 | --- | --- |
 | `:SimpleWhichKey [prefix]` | open the panel for a prefix, default the leader |
 | `:SimpleWhichKeyVisual [prefix]` | the same for visual mode mappings |
+| `:SimpleWhichKeyOperator [prefix]` | operator mappings/motions; defaults to `g` |
 | `:SimpleWhichKeyRefresh` | re-take the prefixes, e.g. after changing the leader |
 | `:SimpleWhichKeyToggle` | hints on/off |
 | `:SimpleWhichKeyHealth` | which prefixes are hooked, and what they hold |
@@ -155,7 +164,9 @@ the quickest way to check a configuration without pressing anything.
 - `:normal <C-w>v` in a script (with mappings, no `!`) goes through the panel's
   replay, so those keys run after the `:normal` finishes instead of inside it.
   Script code should use `:normal!` anyway.
-- Insert and command-line mode are not hooked.
+- Insert and command-line mode are not hooked. Operator-pending mode defaults
+  to `g`, `[` and `]`; remove the `o` entry from
+  `g:simplewhichkey_prefixes` to disable those hints.
 
 ## Tests
 

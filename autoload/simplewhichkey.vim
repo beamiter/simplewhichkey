@@ -9,28 +9,30 @@ vim9script
 #
 # How a keystroke flows through here:
 #
-#   1. The prefix is mapped to <Cmd>call simplewhichkey#Start(...)<CR>, so
-#      pressing it lands in Start() instead of Vim's command table.
-#   2. Start() waits a moment.  If the next key arrives while waiting, nothing
+#   1. Normal/Visual prefixes enter Start() through <Cmd>; operator prefixes
+#      use a recursive <expr> hook so Vim's pending state never has to be
+#      cancelled or reconstructed.
+#   2. The selector waits a moment. If the next key arrives while waiting, nothing
 #      is drawn: fast typists never see the panel, and the timing of an
 #      established finger habit does not change.
 #   3. Otherwise the panel opens and keys are read with getcharstr() until the
 #      sequence stops being a prefix.
-#   4. The collected sequence is handed back to Vim with feedkeys().  The hooks
-#      are removed for the duration, which is what keeps the replay from
-#      re-entering Start(), and restored once Vim is idle again.
+#   4. Normal/Visual sequences are handed back with feedkeys(). An operator
+#      motion is returned from its expr mapping while the original operator,
+#      counts and register remain live. Hooks are suspended during either path
+#      so replay cannot re-enter the panel.
 #
-# Step 4 is deliberately dumb: the sequence is replayed as typed rather than
-# interpreted here.  Mappings therefore keep their own semantics -- <expr>,
-# <ScriptCmd>, buffer-local, silent, counts, registers -- because Vim, not this
-# plugin, is the one resolving them.
+# Step 4 is deliberately dumb: Vim resolves the selected bytes. Mappings keep
+# their own semantics -- <expr>, <ScriptCmd>, <Plug>, buffer-local, silent,
+# counts and registers -- because the plugin never interprets their action.
 # =============================================================================
 
-const HOOK_MARKER = 'simplewhichkey#Start'
+const HOOK_MARKER = 'simplewhichkey#\%(Start\|OperatorHook\)'
 const RESTORE_GROUP = 'simplewhichkey_restore'
 const ESCAPE_KEY = "\<Esc>"
 const INTERRUPT_KEY = "\<C-c>"
 const BACKSPACE_KEY = "\<BS>"
+const IGNORE_KEY = "\<Ignore>"
 
 # mode -> hooked prefixes, in Vim's canonical notation.
 var hooks: dict<list<string>> = {}
@@ -39,7 +41,7 @@ var descriptions: dict<dict<string>> = {}
 var group_names: dict<dict<string>> = {}
 
 var active = false
-var suspended = false
+var suspended_modes: dict<bool> = {}
 var pending_feeds = 0
 var restore_timer = -1
 
@@ -63,7 +65,9 @@ def MapCommand(mode: string): string
     return 'xnoremap'
   endif
   if mode ==# 'o'
-    return 'onoremap'
+    # Operator results are intentionally remappable after the expr hook
+    # removes itself, so discovered user mappings retain their semantics.
+    return 'omap'
   endif
   return 'nnoremap'
 enddef
@@ -369,39 +373,61 @@ enddef
 # Hooks
 # ---------------------------------------------------------------------------
 
+# Find the exact global mapping even when a buffer-local mapping shadows it in
+# maparg(). Install/remove decisions are about the global slot and must never
+# overwrite a hidden user mapping or fail to remove a hidden plugin hook.
+def GlobalMapping(lhs: string, mode: string): dict<any>
+  var wanted = simplewhichkey#keys#Termcodes(lhs)
+  for entry in maplist()
+    if get(entry, 'abbr', 0) || get(entry, 'buffer', 0)
+          \ || !ModeMatches(get(entry, 'mode', ''), mode)
+      continue
+    endif
+    for raw in [get(entry, 'lhsrawalt', ''), get(entry, 'lhsraw', '')]
+      if raw !=# '' && raw ==# wanted
+        return entry
+      endif
+    endfor
+  endfor
+  return {}
+enddef
+
 # True when the global mapping slot is free or already held by a hook.  A
 # buffer-local mapping does not block the global hook: it simply wins locally.
 def Available(lhs: string, mode: string): bool
-  var entry = maparg(lhs, mode, false, true)
-  if empty(entry) || get(entry, 'buffer', 0)
-    return true
-  endif
-  return get(entry, 'rhs', '') =~# HOOK_MARKER
+  var entry = GlobalMapping(lhs, mode)
+  return empty(entry) || get(entry, 'rhs', '') =~# HOOK_MARKER
 enddef
 
-def InstallHooks()
+def InstallHooks(only_mode: string = '')
   for [mode, prefixes] in items(hooks)
+    if only_mode !=# '' && mode !=# only_mode
+      continue
+    endif
     for lhs in prefixes
       if !Available(lhs, mode)
         continue
       endif
-      execute printf(
-        '%s <silent> %s <Cmd>call simplewhichkey#Start(%s, %s)<CR>',
-        MapCommand(mode),
-        lhs,
-        string(lhs),
-        string(mode))
+      if mode ==# 'o'
+        execute printf(
+          '%s <silent> <expr> %s simplewhichkey#OperatorHook(%s)',
+          MapCommand(mode), lhs, string(lhs))
+      else
+        execute printf(
+          '%s <silent> %s <Cmd>call simplewhichkey#Start(%s, %s)<CR>',
+          MapCommand(mode), lhs, string(lhs), string(mode))
+      endif
     endfor
   endfor
 enddef
 
-def RemoveHooks()
+def RemoveHooks(only_mode: string = '')
   for [mode, prefixes] in items(hooks)
+    if only_mode !=# '' && mode !=# only_mode
+      continue
+    endif
     for lhs in prefixes
-      var entry = maparg(lhs, mode, false, true)
-      if empty(entry) || get(entry, 'buffer', 0)
-        continue
-      endif
+      var entry = GlobalMapping(lhs, mode)
       if get(entry, 'rhs', '') =~# HOOK_MARKER
         execute printf('silent! %s %s', UnmapCommand(mode), lhs)
       endif
@@ -467,12 +493,15 @@ enddef
 # Replay
 # ---------------------------------------------------------------------------
 
-def Suspend()
-  if suspended
+def Suspend(mode: string)
+  if get(suspended_modes, mode, false)
     return
   endif
-  RemoveHooks()
-  suspended = true
+  # Only the mappings that could catch this replay need to disappear. Keeping
+  # the other modes live is essential when a Normal command such as g@, g~,
+  # gu, gU or gq finishes its replay waiting for an operator motion.
+  RemoveHooks(mode)
+  suspended_modes[mode] = true
 enddef
 
 export def Restore()
@@ -482,11 +511,18 @@ export def Restore()
   endif
   execute 'silent! autocmd! ' .. RESTORE_GROUP
   pending_feeds = 0
-  if suspended
-    suspended = false
-    if Flag('simplewhichkey_enable', 1)
-      InstallHooks()
-    endif
+  var modes = keys(suspended_modes)
+  suspended_modes = {}
+  if Flag('simplewhichkey_enable', 1)
+    for mode in modes
+      InstallHooks(mode)
+    endfor
+  endif
+enddef
+
+export def RestoreWhenIdle()
+  if empty(state('mo'))
+    Restore()
   endif
 enddef
 
@@ -496,7 +532,7 @@ def RestoreTick(_: number)
   if !empty(state('mo'))
     return
   endif
-  Restore()
+  RestoreWhenIdle()
 enddef
 
 def ScheduleRestore()
@@ -505,8 +541,8 @@ def ScheduleRestore()
   # SafeState is the accurate signal: it fires only once nothing is pending.
   # The others cover the states SafeState does not reach, such as sitting in
   # Insert mode after a mapping that ends there.
-  autocmd SafeState * ++once simplewhichkey#Restore()
-  autocmd InsertLeave,CmdlineLeave,CursorHold * ++once simplewhichkey#Restore()
+  autocmd SafeState * ++once simplewhichkey#RestoreWhenIdle()
+  autocmd InsertLeave,CmdlineLeave,CursorHold * ++once simplewhichkey#RestoreWhenIdle()
   augroup END
   if restore_timer >= 0
     timer_stop(restore_timer)
@@ -514,7 +550,7 @@ def ScheduleRestore()
   restore_timer = timer_start(200, RestoreTick, {repeat: -1})
 enddef
 
-def Feed(sequence: string)
+def Feed(sequence: string, mode: string)
   if empty(sequence)
     Restore()
     return
@@ -526,7 +562,15 @@ def Feed(sequence: string)
     Restore()
     return
   endif
-  Suspend()
+  # Preserve only the transition this feature needs: a Normal replay may end
+  # waiting for an operator motion, so its o-mode hints stay installed. Other
+  # replay entry points may cross back through Normal mode, therefore all
+  # prefix modes are suspended for those paths.
+  Suspend('n')
+  Suspend('x')
+  if mode !=# 'n'
+    Suspend('o')
+  endif
   pending_feeds += 1
   feedkeys(sequence, 'mt')
   ScheduleRestore()
@@ -579,21 +623,7 @@ def InitialDelay(mode: string, sequence: string): number
   return Ambiguous(mode, sequence) ? 0 : delay
 enddef
 
-export def Start(prefix: string, mode: string = 'n')
-  var raw_prefix = simplewhichkey#keys#Termcodes(prefix)
-  if empty(raw_prefix)
-    return
-  endif
-  var count = v:count > 0 ? string(v:count) : ''
-  var register = v:register ==# DefaultRegister() ? '' : '"' .. v:register
-
-  # Disabled, re-entered, or nothing known under this prefix: hand the key back
-  # without waiting, so a key that has nothing to show keeps its native speed.
-  if !Flag('simplewhichkey_enable', 1) || active || empty(Level(mode, raw_prefix))
-    Feed(count .. register .. raw_prefix)
-    return
-  endif
-
+def SelectSequence(raw_prefix: string, mode: string): dict<any>
   active = true
   var sequence = raw_prefix
   var stack: list<string> = []
@@ -653,10 +683,64 @@ export def Start(prefix: string, mode: string = 'n')
     active = false
   endtry
 
-  if aborted
+  return {aborted: aborted, sequence: sequence}
+enddef
+
+# Called as an operator-pending <expr> mapping. Selection happens while Vim's
+# original operator is still pending, and the chosen motion is returned
+# directly. Vim therefore retains the exact operator/count/register state.
+export def OperatorHook(prefix: string): string
+  var raw_prefix = simplewhichkey#keys#Termcodes(prefix)
+  if empty(raw_prefix)
+    return ''
+  endif
+  if !Flag('simplewhichkey_enable', 1) || active
+        \ || empty(Level('o', raw_prefix))
+    Suspend('o')
+    ScheduleRestore()
+    return IGNORE_KEY .. raw_prefix
+  endif
+  var selected = SelectSequence(raw_prefix, 'o')
+  if selected.aborted
+    return ESCAPE_KEY
+  endif
+  # A recursive expr mapping normally suppresses remapping of its first result
+  # byte to prevent self-recursion. <Ignore> forms a harmless boundary; after
+  # the hook is removed, the complete returned motion can resolve user omaps,
+  # <Plug> targets and expr mappings exactly as typed.
+  Suspend('o')
+  ScheduleRestore()
+  return IGNORE_KEY .. selected.sequence
+enddef
+
+export def Start(prefix: string, mode: string = 'n')
+  # Normal/Visual prefixes are replayed from their mapping context, so capture
+  # count/register before waiting or drawing. Operator hooks never come here:
+  # they preserve Vim's live pending state and replay only a motion above.
+  var captured_count = v:count
+  var captured_register = v:register
+  var captured_default_register = DefaultRegister()
+  var raw_prefix = simplewhichkey#keys#Termcodes(prefix)
+  if empty(raw_prefix)
     return
   endif
-  Feed(count .. register .. sequence)
+  var count = captured_count > 0 ? string(captured_count) : ''
+  var register = captured_register ==# captured_default_register
+    ? '' : '"' .. captured_register
+  var replay_head = count .. register
+
+  # Disabled, re-entered, or nothing known under this prefix: hand the key back
+  # without waiting, so a key that has nothing to show keeps its native speed.
+  if !Flag('simplewhichkey_enable', 1) || active || empty(Level(mode, raw_prefix))
+    Feed(replay_head .. raw_prefix, mode)
+    return
+  endif
+
+  var selected = SelectSequence(raw_prefix, mode)
+  if selected.aborted
+    return
+  endif
+  Feed(replay_head .. selected.sequence, mode)
 enddef
 
 # What the panel would list for a prefix, without opening it.  Useful to check
@@ -675,7 +759,7 @@ enddef
 
 # :SimpleWhichKey [prefix]
 export def Show(argument: string, mode: string = 'n')
-  var prefix = empty(argument) ? '<leader>' : argument
+  var prefix = empty(argument) ? (mode ==# 'o' ? 'g' : '<leader>') : argument
   Start(prefix, mode)
 enddef
 
@@ -718,13 +802,22 @@ export def Health()
   add(lines, printf('  enabled        : %s', Flag('simplewhichkey_enable', 1) ? 'yes' : 'no'))
   add(lines, printf('  delay          : %d ms (timeoutlen %d ms)',
     get(g:, 'simplewhichkey_delay', 200), &timeoutlen))
+  var description_count = 0
+  var group_count = 0
+  for registered in values(descriptions)
+    description_count += len(registered)
+  endfor
+  for registered in values(group_names)
+    group_count += len(registered)
+  endfor
   add(lines, printf('  descriptions   : %d entries, %d groups',
-    len(get(descriptions, 'n', {})) + len(get(descriptions, 'x', {})),
-    len(get(group_names, 'n', {})) + len(get(group_names, 'x', {}))))
+    description_count, group_count))
   for [mode, prefixes] in items(hooks)
     add(lines, printf('  mode %s', mode))
     for lhs in prefixes
-      var entry = maparg(lhs, mode, false, true)
+      # maparg() reports a current-buffer mapping first and can hide the
+      # global slot whose ownership Health is describing.
+      var entry = GlobalMapping(lhs, mode)
       var status = 'MISSING'
       if !empty(entry) && get(entry, 'rhs', '') =~# HOOK_MARKER
         status = 'hooked'

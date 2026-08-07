@@ -46,19 +46,21 @@ No external program, no daemon, no other plugin.
 ==============================================================================
 3. HOW IT WORKS                                     *simplewhichkey-mechanics*
 
-    1. Every configured prefix is mapped to: >
-        <Cmd>call simplewhichkey#Start(...)<CR>
-<    2. Start() waits |g:simplewhichkey_delay| milliseconds.  If the next key
-       arrives while waiting, no panel is drawn.
+    1. Normal/Visual prefixes enter Start() through <Cmd>. Operator prefixes
+       use a recursive <expr> hook that leaves Vim's pending operator live.
+    2. The selector waits |g:simplewhichkey_delay| milliseconds.  If the next
+       key arrives while waiting, no panel is drawn.
     3. Otherwise the panel opens and keys are read with |getcharstr()| until
        the sequence stops being a prefix.
-    4. The sequence is replayed with |feedkeys()|.  The hooks are removed for
-       the duration of the replay, which is what stops it from re-entering the
-       panel, and restored as soon as Vim is idle again.
+    4. Normal/Visual sequences are replayed with |feedkeys()|. An operator
+       motion is returned directly from its expression mapping. Hooks are
+       suspended for both paths and restored once Vim is idle.
 
 Because step 4 replays the keys instead of interpreting them, mappings keep
-their own semantics: <expr>, <ScriptCmd>, <Plug>, buffer-local, |:map-silent|,
-counts and registers all behave as they would without the plugin.
+their own semantics: <expr>, <ScriptCmd>, <Plug>, recursive, buffer-local,
+|:map-silent|, counts and registers all behave as they would without the
+plugin. Operator selection never cancels or reconstructs the pending state,
+so |g@| callbacks and 'unnamed'/'unnamedplus' mirroring remain native.
 
 When other mappings extend a prefix, Vim itself waits 'timeoutlen' before
 dispatching it, so the panel opens without further delay.  A shorter
@@ -94,6 +96,7 @@ Which prefixes open a panel, per mode.  Only "n", "x" and "o" are used. >
           \       '[', ']', '"', "'", '`'],
           \ 'x': ['<leader>', '<localleader>', 'g', 'z', '[', ']',
           \       '"', "'", '`'],
+          \ 'o': ['g', '[', ']'],
           \ }
 <
 A prefix that is already mapped by you is left alone.
@@ -166,6 +169,14 @@ Both accept a mode as the last argument, "n" by default.
 :SimpleWhichKeyVisual [prefix]
                             The same, listing visual mode mappings.
 
+                                                      *:SimpleWhichKeyOperator*
+:SimpleWhichKeyOperator [prefix]
+                            The same, listing operator-pending mappings and
+                            built-in motions; [prefix] defaults to "g".  The
+                            default operator prefixes are "g", "[" and "]".
+                            Counts, named registers and Vim's default-register
+                            behavior survive replay.
+
                                                        *:SimpleWhichKeyRefresh*
 :SimpleWhichKeyRefresh      Take the configured prefixes again.  Needed after
                             changing 'mapleader' or |g:simplewhichkey_prefixes|
@@ -216,7 +227,8 @@ simplewhichkey#Start({prefix} [, {mode}])             *simplewhichkey#Start()*
 - |:normal| without "!" in a script goes through the replay, so those keys run
   after the :normal command finishes rather than inside it.  Script code should
   use :normal! anyway.
-- Operator-pending mode is off by default; add "o" to
-  |g:simplewhichkey_prefixes| to hint there too.
+- Operator-pending hints default to "g", "[" and "]". An exact user |:omap|
+  on a prefix keeps ownership; remove the "o" entry from
+  |g:simplewhichkey_prefixes| to turn the default hooks off.
 
 vim:tw=78:ts=8:noet:ft=help:norl:

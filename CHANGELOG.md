@@ -6,6 +6,13 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- Operator-pending mode is now first-class: `g`, `[` and `]` are hinted by
+  default after operators, and `:SimpleWhichKeyOperator` exposes the mode
+  explicitly. The expression hook leaves Vim's original operator, multiplied
+  count and register live while a motion is selected, preserving `g@`, dot
+  repeat and clipboard semantics. Exact prefix omaps still win; discovered
+  recursive, `<Plug>` and expr omaps continue to execute after slow selection.
+
 - Page position is now remembered per visited level for the lifetime of one
   key sequence. Entering a group from an overflow page and pressing `<BS>`
   returns to that page instead of resetting the parent to page one.

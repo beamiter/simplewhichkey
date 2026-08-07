@@ -153,6 +153,25 @@ const GOTO_VISUAL = {
   'N': 'extend-to-previous-search-match',
 }
 
+# `g` motions accepted while an operator is pending. Commands that are only
+# valid in Normal/Visual mode deliberately stay out: advertising one would be
+# worse than omitting it because the replay is left entirely to Vim.
+const GOTO_OPERATOR = {
+  'g': 'first-line',
+  'e': 'previous-word-end',
+  'E': 'previous-WORD-end',
+  '_': 'last-non-blank',
+  '0': 'first-screen-column',
+  '<Home>': 'first-screen-column',
+  '^': 'first-screen-non-blank',
+  '$': 'last-screen-column',
+  '<End>': 'last-screen-column',
+  'm': 'middle-screen-column',
+  'M': 'middle-text-column',
+  'j': 'down-one-screen-line',
+  'k': 'up-one-screen-line',
+}
+
 const FOLD_SCROLL = {
   'f': 'create-fold-operator',
   'F': 'create-fold-for-lines',
@@ -255,6 +274,43 @@ const BRACKET_FORWARD = {
   'f': 'next-file-in-directory',
 }
 
+# Only entries Vim accepts as motions belong in operator-pending panels.
+# Display/list/paste/file commands from the Normal-mode tables are omitted: a
+# pending operator cannot consume them as its motion.
+const BRACKET_BACKWARD_OPERATOR = {
+  '[': 'previous-section-start',
+  ']': 'previous-section-end',
+  '(': 'previous-unmatched-paren',
+  '{': 'previous-unmatched-brace',
+  'm': 'previous-method-start',
+  'M': 'previous-method-end',
+  '#': 'previous-unmatched-if',
+  '*': 'previous-comment-start',
+  '/': 'previous-comment-start',
+  'c': 'previous-diff-change',
+  's': 'previous-spelling-error',
+  'z': 'move-to-fold-start',
+  "'": 'previous-lowercase-mark',
+  '`': 'previous-lowercase-mark',
+}
+
+const BRACKET_FORWARD_OPERATOR = {
+  ']': 'next-section-start',
+  '[': 'next-section-end',
+  ')': 'next-unmatched-paren',
+  '}': 'next-unmatched-brace',
+  'm': 'next-method-start',
+  'M': 'next-method-end',
+  '#': 'next-unmatched-endif',
+  '*': 'next-comment-end',
+  '/': 'next-comment-end',
+  'c': 'next-diff-change',
+  's': 'next-spelling-error',
+  'z': 'move-to-fold-end',
+  "'": 'next-lowercase-mark',
+  '`': 'next-lowercase-mark',
+}
+
 const QUIT = {
   'Z': 'write-and-quit',
   'Q': 'quit-without-writing',
@@ -263,10 +319,10 @@ const QUIT = {
 # prefix notation -> {mode -> {relative notation -> description}}
 const TABLES = {
   '<C-w>': {n: WINDOW},
-  'g': {n: GOTO_NORMAL, x: GOTO_VISUAL},
+  'g': {n: GOTO_NORMAL, x: GOTO_VISUAL, o: GOTO_OPERATOR},
   'z': {n: FOLD_SCROLL, x: FOLD_SCROLL},
-  '[': {n: BRACKET_BACKWARD, x: BRACKET_BACKWARD, o: BRACKET_BACKWARD},
-  ']': {n: BRACKET_FORWARD, x: BRACKET_FORWARD, o: BRACKET_FORWARD},
+  '[': {n: BRACKET_BACKWARD, x: BRACKET_BACKWARD, o: BRACKET_BACKWARD_OPERATOR},
+  ']': {n: BRACKET_FORWARD, x: BRACKET_FORWARD, o: BRACKET_FORWARD_OPERATOR},
   'Z': {n: QUIT},
 }
 
