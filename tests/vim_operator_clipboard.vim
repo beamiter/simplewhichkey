@@ -118,6 +118,21 @@ enddef
 &operatorfunc = 'g:SimpleWhichKeyClipboardOperator'
 g:simplewhichkey_clipboard_capture = {}
 
+# A Vim built without clipboard support has no `+`/`*` registers at all: the
+# in-memory provider above cannot be installed (no 'clipmethod'), `&clipboard`
+# silently no-ops, and typing `"+` is rejected with E354 so v:register stays
+# `"`.  The explicit-register half of this scenario is then untestable by
+# construction, while everything before it is register-agnostic and still
+# meaningful -- so run that and record the omission instead of failing.
+const explicit_registers = memory_provider || has('clipboard')
+var skips: list<string> = []
+if !explicit_registers
+  add(skips, $'SKIP explicit {clipboard_register} register steps: '
+    .. 'this Vim has no clipboard registers '
+    .. $'(has("clipboard")={has("clipboard")}, '
+    .. $'exists("+clipmethod")={exists("+clipmethod")})')
+endif
+
 var steps = [
   # Establish the native operatorfunc register in an otherwise fresh process.
   () => {
@@ -217,7 +232,12 @@ var steps = [
       assert_equal(expected, split(getreg(clipboard_register), "\n"),
         $'{SETTING} ygg mirrors text to {clipboard_register}')
     endif
+  },
+]
 
+# Everything below needs a real `+`/`*` register to type and to observe.
+var explicit_steps = [
+  () => {
     # Remove the separate Normal `"` panel so this fixture isolates the
     # operator hook while retaining an explicitly typed clipboard register.
     simplewhichkey#Disable()
@@ -267,16 +287,22 @@ var steps = [
   },
 ]
 
+if explicit_registers
+  steps += explicit_steps
+endif
+
 var index = 0
 var retry_index = -1
 var retry_count = 0
 
 def Finish()
+  # The verdict stays on its own first line: the Makefile greps for it anchored,
+  # and cats the whole file so the SKIP notes are read by whoever ran the gate.
   if !empty(v:errors)
-    writefile(['FAIL'] + v:errors, REPORT)
+    writefile(['FAIL'] + v:errors + skips, REPORT)
     cquit 1
   endif
-  writefile(['PASS ' .. SETTING], REPORT)
+  writefile(['PASS ' .. SETTING] + skips, REPORT)
   qall!
 enddef
 
