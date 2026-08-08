@@ -87,10 +87,13 @@ simplewhichkey#panel#Show('Wide', wide, "n\x01wide")
 var wide_popup = popup_list()[-1]
 var wide_lines = getbufline(winbufnr(wide_popup), 1, '$')
 assert_true(len(wide_lines) > 0)
+# Measure against the text area the popup really has rather than against a
+# constant that only happened to match the old frame arithmetic.
+var wide_pos = popup_getpos(wide_popup)
 for line in wide_lines
-  assert_true(strdisplaywidth(line) <= &columns - 6,
-    printf('a wide description overflowed the panel: %d columns in %s',
-      strdisplaywidth(line), string(line)))
+  assert_true(strdisplaywidth(line) <= wide_pos.core_width,
+    printf('a wide description overflowed the panel: %d columns in %d',
+      strdisplaywidth(line), wide_pos.core_width))
 endfor
 # ASCII keeps working, and the ellipsis is still added.
 simplewhichkey#panel#Show('Wide', [
@@ -100,6 +103,26 @@ assert_match('x\{11}…',
   getbufline(winbufnr(popup_list()[-1]), 1, '$')[0])
 simplewhichkey#panel#Close()
 g:simplewhichkey_max_desc_width = 30
+
+# The border and the padding are part of the popup's width.  Vim sizes
+# minwidth/maxwidth from the text alone, so a panel that claims the whole
+# screen and then draws a frame on top of it is wider than the terminal and
+# Vim clips its right border off-screen -- which is what an 80 column Vim used
+# to get from a default panel: an 82 column frame.
+for border_setting in [1, 0]
+  g:simplewhichkey_border = border_setting
+  simplewhichkey#panel#Show('Frame', [
+    {label: 'a', desc: 'entry', group: false},
+  ], "n\x01frame" .. border_setting)
+  var framed = popup_getpos(popup_list()[-1])
+  assert_true(framed.col + framed.width - 1 <= &columns,
+    printf('the panel ran off the screen with border=%d: col %d width %d of %d',
+      border_setting, framed.col, framed.width, &columns))
+  assert_equal(&columns, framed.col + framed.width - 1,
+    printf('the panel left screen columns unused with border=%d', border_setting))
+endfor
+g:simplewhichkey_border = 1
+simplewhichkey#panel#Close()
 
 # The bottom panel stops above the statusline instead of covering it.
 var saved_laststatus = &laststatus

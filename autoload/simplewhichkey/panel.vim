@@ -226,19 +226,46 @@ def Layout(entries: list<dict<any>>, available: number, requested_page: number):
   return {lines: lines, page: page, pages: pages}
 enddef
 
-def PopupOptions(title: string, height: number): dict<any>
+const BORDER_CHARS = ['─', '│', '─', '│', '╭', '╮', '╯', '╰']
+const PADDING = [0, 1, 0, 1]
+
+# What the popup costs around its text.
+#
+# Vim's minwidth/maxwidth size the text area alone, so every column the border
+# and the padding take has to come off the budget before the grid is laid out.
+# It did not: the panel asked for &columns - 2 columns of text and then added
+# two border and two padding columns on top, so on an 80 column terminal it
+# drew an 82 column frame whose right border Vim clipped away off-screen.
+def Frame(): dict<any>
   var border = get(g:, 'simplewhichkey_border', 1) ? [1, 1, 1, 1] : [0, 0, 0, 0]
+  return {
+    border: border,
+    borderchars: BORDER_CHARS,
+    padding: PADDING,
+    width: border[1] + border[3] + PADDING[1] + PADDING[3],
+    height: border[0] + border[2] + PADDING[0] + PADDING[2],
+  }
+enddef
+
+# The widest text a panel may hold, in display columns.  The floor keeps a
+# pathologically narrow terminal from producing a zero-column grid; the panel
+# is then clipped by Vim rather than by arithmetic that divides by nothing.
+def Budget(frame: dict<any>): number
+  return max([20, &columns - frame.width])
+enddef
+
+def PopupOptions(title: string, height: number, frame: dict<any>, width: number): dict<any>
   var position = get(g:, 'simplewhichkey_position', 'bottom')
   var options = {
     line: 0,
     col: 1,
-    minwidth: &columns - 2,
-    maxwidth: &columns - 2,
+    minwidth: width,
+    maxwidth: width,
     zindex: 300,
-    border: border,
-    borderchars: ['─', '│', '─', '│', '╭', '╮', '╯', '╰'],
+    border: frame.border,
+    borderchars: frame.borderchars,
     borderhighlight: ['SimpleWhichKeyBorder'],
-    padding: [0, 1, 0, 1],
+    padding: frame.padding,
     highlight: 'SimpleWhichKeyNormal',
     title: ' ' .. title .. ' ',
     mapping: false,
@@ -247,11 +274,11 @@ def PopupOptions(title: string, height: number): dict<any>
     pos: 'topleft',
     wrap: false,
   }
-  var frame = height + (border[0] + border[2]) + 2
+  var outer = height + frame.height
   if position ==# 'top'
     options.line = 1
   elseif position ==# 'center'
-    options.line = max([1, (&lines - frame) / 2])
+    options.line = max([1, (&lines - outer) / 2])
   else
     options.pos = 'botleft'
     # Sit above the command line, and above the statusline when there is one:
@@ -286,8 +313,9 @@ export def Show(title: string, entries: list<dict<any>>, level_id: string = '')
     current_level = identity
     current_page = get(pages_by_level, identity, 0)
   endif
-  var available = &columns - 6
-  var layout = Layout(SortEntries(entries), max([20, available]), current_page)
+  var frame = Frame()
+  var budget = Budget(frame)
+  var layout = Layout(SortEntries(entries), budget, current_page)
   current_page = layout.page
   current_pages = layout.pages
   pages_by_level[identity] = current_page
@@ -295,7 +323,7 @@ export def Show(title: string, entries: list<dict<any>>, level_id: string = '')
   if current_pages > 1
     display_title ..= printf(' [%d/%d PgUp/PgDn]', current_page + 1, current_pages)
   endif
-  var options = PopupOptions(display_title, len(layout.lines))
+  var options = PopupOptions(display_title, len(layout.lines), frame, budget)
   if popup_id > 0 && !empty(popup_getoptions(popup_id))
     popup_settext(popup_id, layout.lines)
     popup_setoptions(popup_id, options)

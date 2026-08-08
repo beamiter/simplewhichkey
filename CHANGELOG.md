@@ -6,6 +6,13 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Fixed
 
+- The panel fits on the screen. Vim's `minwidth`/`maxwidth` size a popup's text
+  area alone, and the panel asked for `&columns - 2` columns of text and then
+  drew a border and padding on top of that: on an 80 column terminal the frame
+  came to 82 columns and Vim clipped the right border away off-screen. The
+  frame is now subtracted before the grid is laid out, which also hands the
+  columns two more cells of real estate than they used to get.
+
 - A bottom-positioned panel no longer covers the statusline. The ternary meant
   to compensate for `'laststatus'` had two identical branches and did nothing.
   The compensation follows the statusline that is actually drawn rather than
