@@ -365,6 +365,40 @@ const TEXTOBJECT_AROUND = {
   '`': 'a-backtick-quoted-string',
 }
 
+# Insert and command-line mode have exactly two prefixes worth hinting, and
+# both are pure built-in commands that no mapping can enumerate.
+#
+# CTRL-R takes a register name.  Its three CTRL sub-forms change how the text
+# lands -- literally, as if typed, or reindented -- and then take a register
+# name as well, so they are groups: the register list follows them too.  '='
+# is the odd one out, a leaf that opens the expression command line.
+const INSERT_REGISTER = {
+  '<C-r>': '+insert-literally',
+  '<C-o>': '+insert-as-typed',
+  '<C-p>': '+insert-and-fix-indent',
+  '=': 'expression-register',
+}
+
+# CTRL-X selects which kind of completion the next key starts.  Nobody
+# remembers more than two of these, which is the whole argument for the panel.
+const COMPLETION = {
+  '<C-f>': 'file-names',
+  '<C-l>': 'whole-lines',
+  '<C-n>': 'keywords-next',
+  '<C-p>': 'keywords-previous',
+  '<C-k>': 'dictionary-words',
+  '<C-t>': 'thesaurus-words',
+  '<C-i>': 'keywords-in-included-files',
+  '<C-]>': 'tags',
+  '<C-d>': 'definitions-and-macros',
+  '<C-v>': 'vim-command-line',
+  '<C-u>': 'user-defined-completefunc',
+  '<C-o>': 'omni-completion',
+  's': 'spelling-suggestions',
+  '<C-s>': 'spelling-suggestions',
+  '<C-z>': 'stop-completion',
+}
+
 # prefix notation -> {mode -> {relative notation -> description}}
 const TABLES = {
   '<C-w>': {n: WINDOW},
@@ -377,6 +411,10 @@ const TABLES = {
   # object, and hooking them would be a different feature entirely.
   'i': {x: TEXTOBJECT_INNER, o: TEXTOBJECT_INNER},
   'a': {x: TEXTOBJECT_AROUND, o: TEXTOBJECT_AROUND},
+  # CTRL-R means the same thing while typing text and while typing a command
+  # line; CTRL-X completion exists in Insert mode only.
+  '<C-r>': {i: INSERT_REGISTER, c: INSERT_REGISTER},
+  '<C-x>': {i: COMPLETION},
 }
 
 # mode -> raw sequence -> description, built on first use.
@@ -448,9 +486,29 @@ def Marks(): dict<string>
   return out
 enddef
 
+# Every Insert/command-line sequence that ends by taking a register name:
+# CTRL-R itself and the three sub-forms that only change how the text lands.
+def TakesRegisterName(sequence: string): bool
+  var base = simplewhichkey#keys#Termcodes('<C-r>')
+  if sequence ==# base
+    return true
+  endif
+  for suffix in ['<C-r>', '<C-o>', '<C-p>']
+    if sequence ==# base .. simplewhichkey#keys#Termcodes(suffix)
+      return true
+    endif
+  endfor
+  return false
+enddef
+
 # Children of a prefix that has to be listed from Vim's current state.  Returns
 # an empty dict for every other prefix.
 export def Dynamic(mode: string, sequence: string): dict<string>
+  if mode ==# 'i' || mode ==# 'c'
+    # '"' and the mark keys are ordinary text while typing; only CTRL-R reads
+    # a register name here.
+    return TakesRegisterName(sequence) ? Registers() : {}
+  endif
   if sequence ==# '"'
     return Registers()
   endif

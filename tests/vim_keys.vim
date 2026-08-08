@@ -93,6 +93,11 @@ def TextObjectHooked(): bool
     && maparg('a', 'x') =~# 'simplewhichkey#Start'
 enddef
 
+def InsertHooked(): bool
+  return maparg('<C-r>', 'i') =~# 'simplewhichkey#InsertHook'
+    && maparg('<C-x>', 'i') =~# 'simplewhichkey#InsertHook'
+enddef
+
 def WaitFor(Cond: func(): bool, ms: number = 1000): bool
   var waited = 0
   while waited < ms
@@ -780,6 +785,77 @@ var steps = [
   () => {
     assert_equal('onex', getline(1), 'and Insert mode kept the typed text')
     assert_true(Hooked(), 'hooks restored after leaving Insert mode')
+  },
+
+  # --- Insert mode: CTRL-R lists the registers that hold something ---------
+  # The expr hook returns the chosen keys instead of feeding them, so the text
+  # typed so far and the cursor are Vim's own throughout.
+  () => {
+    assert_true(WaitFor(() => InsertHooked()),
+      'insert hooks were not installed')
+    PutLines(['prefix-'])
+    setreg('a', 'register-a-content')
+    cursor(1, 1)
+    Type("A\<C-r>")
+  },
+  () => {
+    assert_true(PanelVisible(), 'panel after CTRL-R in Insert mode')
+    assert_equal('<C-R>', PanelTitle())
+    assert_match('register-a-content', PanelText(), 'register contents shown')
+    Type('a')
+  },
+  () => {
+    assert_true(WaitFor(() => getline(1) ==# 'prefix-register-a-content'),
+      'CTRL-R a inserted the register through the panel: ' .. getline(1))
+    assert_equal('i', mode(), 'the insert hook stayed in Insert mode')
+    Type("\<Esc>")
+  },
+  () => {
+    assert_true(WaitFor(() => mode(1) =~# '^n' && InsertHooked()),
+      'insert hooks restored after leaving Insert mode')
+  },
+
+  # CTRL-X picks a completion kind.  Esc must dismiss the panel without also
+  # leaving Insert mode -- returning <Esc> from the hook would throw away the
+  # insert the user is in the middle of.
+  () => {
+    PutLines(['keep'])
+    cursor(1, 1)
+    Type("A\<C-x>")
+  },
+  () => {
+    assert_true(PanelVisible(), 'panel after CTRL-X in Insert mode')
+    assert_equal('<C-X>', PanelTitle())
+    assert_match('omni-completion', PanelText())
+    Type("\<Esc>")
+  },
+  () => {
+    assert_false(PanelVisible(), 'Esc closed the completion panel')
+    assert_equal('i', mode(),
+      'Esc in an Insert-mode panel must not leave Insert mode')
+    assert_equal('keep', getline(1), 'the dismissed prefix inserted nothing')
+    Type("\<Esc>")
+  },
+  () => assert_true(WaitFor(() => mode(1) =~# '^n' && InsertHooked()),
+    'insert hooks restored after dismissing the panel'),
+
+  # The same prefix on the command line, where the half-written line has to
+  # survive the panel.
+  () => {
+    g:hit = ''
+    setreg('a', 'register-a-content')
+    Type(":let g:hit = '\<C-r>")
+  },
+  () => {
+    assert_true(PanelVisible(), 'panel after CTRL-R on the command line')
+    assert_match('register-a-content', PanelText())
+    Type('a')
+  },
+  () => Type("'\<CR>"),
+  () => {
+    assert_true(WaitFor(() => g:hit ==# 'register-a-content'),
+      'the command line kept what was typed before the panel: ' .. g:hit)
+    g:hit = ''
   },
 
   # --- disabled means out of the way --------------------------------------

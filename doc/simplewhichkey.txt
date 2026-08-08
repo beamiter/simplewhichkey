@@ -11,6 +11,7 @@ CONTENTS                                             *simplewhichkey-contents*
     3. How it works .............. |simplewhichkey-mechanics|
     4. Using the panel ........... |simplewhichkey-panel|
        Text objects .............. |simplewhichkey-textobjects|
+       While typing .............. |simplewhichkey-insert|
     5. Options ................... |simplewhichkey-options|
     6. Descriptions .............. |simplewhichkey-descriptions|
     7. Commands .................. |simplewhichkey-commands|
@@ -112,17 +113,50 @@ shorter wait through |g:simplewhichkey_delay| >
 <
 or drop them from |g:simplewhichkey_prefixes| altogether.
 
+WHILE TYPING                                           *simplewhichkey-insert*
+
+Insert mode and the command line have two prefixes worth hinting, and both are
+built-in commands that no |maplist()| sweep can find:
+
+    CTRL-R      takes a register name.  The panel lists every register that
+                holds something, with a preview of its contents, so the choice
+                is made by reading rather than by remembering which letter you
+                yanked into.  Its CTRL-R, CTRL-O and CTRL-P sub-forms -- insert
+                literally, insert as if typed, insert and fix the indent -- are
+                groups that lead to the same register list.  |i_CTRL-R|
+    CTRL-X      picks a kind of completion: whole lines, file names, tags,
+                omni, the dictionary, the thesaurus and the rest.  Insert mode
+                only.  |i_CTRL-X|
+
+Both go through an |<expr>| mapping that returns the chosen keys rather than
+feeding them, so the text typed so far, the cursor and the half-written
+command line are Vim's own the whole time.
+
+Two things keep the panel out of the way of typing:
+
+    - it stands aside completely while a completion menu is open
+      (|pumvisible()|) and while keys are arriving from a mapping, a |:normal|
+      or a |feedkeys()| -- those are not a person pausing to think.
+    - <Esc> dismisses the panel and nothing else.  It does not leave Insert
+      mode and does not abandon the command line; the prefix is simply
+      dropped.
+
+Remove the "i" and "c" entries from |g:simplewhichkey_prefixes| to turn this
+off, or give those prefixes their own wait through |g:simplewhichkey_delay|.
+
 ==============================================================================
 5. OPTIONS                                            *simplewhichkey-options*
 
                                                  *g:simplewhichkey_prefixes*
-Which prefixes open a panel, per mode.  Only "n", "x" and "o" are used. >
+Which prefixes open a panel, per mode.  "n", "x", "o", "i" and "c" are used. >
     let g:simplewhichkey_prefixes = {
           \ 'n': ['<leader>', '<localleader>', 'g', 'z', 'Z', '<C-w>',
           \       '[', ']', '"', "'", '`'],
           \ 'x': ['<leader>', '<localleader>', 'g', 'z', '[', ']',
           \       '"', "'", '`', 'i', 'a'],
           \ 'o': ['g', '[', ']', 'i', 'a'],
+          \ 'i': ['<C-r>', '<C-x>'],
+          \ 'c': ['<C-r>'],
           \ }
 <
 A prefix that is already mapped by you is left alone.
@@ -130,6 +164,9 @@ A prefix that is already mapped by you is left alone.
 "i" and "a" are the text object introducers and appear in the "x" and "o"
 lists only; in Normal mode they start Insert.  See
 |simplewhichkey-textobjects|.
+
+The "i" and "c" lists are Insert mode and the command line, not those two
+keys.  See |simplewhichkey-insert|.
 
                                                     *g:simplewhichkey_enable*
 Set to 0 to keep the plugin loaded but out of the way.  Default 1.
@@ -341,7 +378,9 @@ simplewhichkey#Orphans([{mode}])                    *simplewhichkey#Orphans()*
 ==============================================================================
 10. LIMITS                                             *simplewhichkey-limits*
 
-- Insert and command-line mode are not hooked.
+- Insert and command-line mode are hooked for CTRL-R and CTRL-X only; no other
+  prefix there is a Vim command that could be listed.  See
+  |simplewhichkey-insert|.
 - A prefix already mapped by the user is not taken over.
 - |:normal| without "!" in a script goes through the replay, so those keys run
   after the :normal command finishes rather than inside it.  Script code should

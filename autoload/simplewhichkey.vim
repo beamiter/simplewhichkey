@@ -27,7 +27,11 @@ vim9script
 # counts and registers -- because the plugin never interprets their action.
 # =============================================================================
 
-const HOOK_MARKER = 'simplewhichkey#\%(Start\|OperatorHook\)'
+const HOOK_MARKER = 'simplewhichkey#\%(Start\|OperatorHook\|InsertHook\)'
+# Modes whose hook returns the chosen keys from an <expr> mapping instead of
+# feeding them: Vim's live state -- a pending operator, a half-typed line --
+# has to survive the detour, and only the expr form leaves it alone.
+const EXPR_MODES = ['o', 'i', 'c']
 const RESTORE_GROUP = 'simplewhichkey_restore'
 const ESCAPE_KEY = "\<Esc>"
 const INTERRUPT_KEY = "\<C-c>"
@@ -64,10 +68,16 @@ def MapCommand(mode: string): string
   if mode ==# 'x'
     return 'xnoremap'
   endif
+  # Results of the expr hooks are intentionally remappable after the hook
+  # removes itself, so discovered user mappings retain their semantics.
   if mode ==# 'o'
-    # Operator results are intentionally remappable after the expr hook
-    # removes itself, so discovered user mappings retain their semantics.
     return 'omap'
+  endif
+  if mode ==# 'i'
+    return 'imap'
+  endif
+  if mode ==# 'c'
+    return 'cmap'
   endif
   return 'nnoremap'
 enddef
@@ -78,6 +88,12 @@ def UnmapCommand(mode: string): string
   endif
   if mode ==# 'o'
     return 'ounmap'
+  endif
+  if mode ==# 'i'
+    return 'iunmap'
+  endif
+  if mode ==# 'c'
+    return 'cunmap'
   endif
   return 'nunmap'
 enddef
@@ -93,6 +109,11 @@ def ModeMatches(entry_mode: string, mode: string): bool
   endif
   if entry_mode ==# 'v'
     return mode ==# 'x' || mode ==# 'v' || mode ==# 's'
+  endif
+  # ':map!' covers Insert and command-line mode at once, the same way a space
+  # covers the three Normal-side modes.
+  if entry_mode ==# '!'
+    return mode ==# 'i' || mode ==# 'c'
   endif
   return entry_mode ==# mode
 enddef
@@ -483,6 +504,10 @@ def InstallHooks(only_mode: string = '')
         execute printf(
           '%s <silent> <expr> %s simplewhichkey#OperatorHook(%s)',
           MapCommand(mode), lhs, string(lhs))
+      elseif index(EXPR_MODES, mode) >= 0
+        execute printf(
+          '%s <silent> <expr> %s simplewhichkey#InsertHook(%s, %s)',
+          MapCommand(mode), lhs, string(lhs), string(mode))
       else
         execute printf(
           '%s <silent> %s <Cmd>call simplewhichkey#Start(%s, %s)<CR>',
@@ -514,7 +539,7 @@ export def Setup()
   RemoveHooks()
   hooks = {}
   for [mode, prefixes] in items(configured)
-    if index(['n', 'x', 'o'], mode) < 0 || type(prefixes) != v:t_list
+    if index(['n', 'x', 'o', 'i', 'c'], mode) < 0 || type(prefixes) != v:t_list
       continue
     endif
     var canonical: list<string> = []
@@ -807,31 +832,56 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
   return {aborted: aborted, sequence: sequence}
 enddef
 
-# Called as an operator-pending <expr> mapping. Selection happens while Vim's
-# original operator is still pending, and the chosen motion is returned
-# directly. Vim therefore retains the exact operator/count/register state.
-export def OperatorHook(prefix: string): string
+# Reasons never to interrupt with a panel while text is being typed.  A live
+# completion menu is state a redraw would disturb, and keys arriving from a
+# mapping, a :normal or a feedkeys() are not a person pausing to think.
+def Occupied(mode: string): bool
+  if mode !=# 'i' && mode !=# 'c'
+    return false
+  endif
+  return pumvisible() || !empty(state('m'))
+enddef
+
+# The body every <expr> hook shares.  Selection happens while Vim's own state
+# is still live -- a pending operator, a half-written line -- and the chosen
+# keys are returned rather than fed, so that state is never reconstructed.
+def ExprHook(prefix: string, mode: string): string
   var raw_prefix = simplewhichkey#keys#Termcodes(prefix)
   if empty(raw_prefix)
     return ''
   endif
-  if !Flag('simplewhichkey_enable', 1) || active
-        \ || empty(Level('o', raw_prefix))
-    Suspend('o')
+  if !Flag('simplewhichkey_enable', 1) || active || Occupied(mode)
+        \ || empty(Level(mode, raw_prefix))
+    Suspend(mode)
     ScheduleRestore()
     return IGNORE_KEY .. raw_prefix
   endif
-  var selected = SelectSequence(raw_prefix, 'o')
+  var selected = SelectSequence(raw_prefix, mode)
   if selected.aborted
-    return ESCAPE_KEY
+    # Esc cancels the pending operator, which is what was asked for.  While
+    # typing, the same key would leave Insert mode or throw away the command
+    # line, so there the panel just goes away and the prefix is dropped.
+    return mode ==# 'o' ? ESCAPE_KEY : ''
   endif
   # A recursive expr mapping normally suppresses remapping of its first result
   # byte to prevent self-recursion. <Ignore> forms a harmless boundary; after
-  # the hook is removed, the complete returned motion can resolve user omaps,
-  # <Plug> targets and expr mappings exactly as typed.
-  Suspend('o')
+  # the hook is removed, the complete returned sequence can resolve user
+  # mappings, <Plug> targets and expr mappings exactly as typed.
+  Suspend(mode)
   ScheduleRestore()
   return IGNORE_KEY .. selected.sequence
+enddef
+
+# Called as an operator-pending <expr> mapping. Vim retains the exact
+# operator/count/register state across the selection.
+export def OperatorHook(prefix: string): string
+  return ExprHook(prefix, 'o')
+enddef
+
+# Called as an Insert or command-line <expr> mapping.  The same contract: the
+# text typed so far, the cursor and the command line are Vim's, untouched.
+export def InsertHook(prefix: string, mode: string): string
+  return ExprHook(prefix, mode)
 enddef
 
 export def Start(prefix: string, mode: string = 'n')

@@ -95,6 +95,12 @@ const DEFAULT_PREFIXES = {
   # original operator/count/register state live; exact user omaps still win
   # their prefix slots.
   o: ['g', '[', ']', 'i', 'a'],
+  # CTRL-R takes a register name and CTRL-X picks a completion kind; both are
+  # built-in commands nothing can enumerate, and both are asked for in the
+  # middle of typing, where a wrong guess costs an undo.  The hook stands
+  # aside while a completion menu is open or while keys arrive from a mapping.
+  i: ['<C-r>', '<C-x>'],
+  c: ['<C-r>'],
 }
 
 g:simplewhichkey_enable = Flag(get(g:, 'simplewhichkey_enable', 1), 1)

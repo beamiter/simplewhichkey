@@ -56,6 +56,17 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- Insert mode and the command line are hinted. `<C-r>` lists every register
+  that holds something, with a preview, in both modes — as do its `<C-r>`,
+  `<C-o>` and `<C-p>` sub-forms — and Insert-mode `<C-x>` lists the completion
+  kinds. Both are built-in commands no `maplist()` sweep can find. They go
+  through the same `<expr>` hook as the operator prefixes, so the text typed so
+  far, the cursor and the half-written command line are never reconstructed.
+  The hook stands aside while a completion menu is open and while keys arrive
+  from a mapping or a `feedkeys()`, and `<Esc>` dismisses the panel without
+  leaving Insert mode or abandoning the command line. Configured through the
+  new `i` and `c` entries of `g:simplewhichkey_prefixes`.
+
 - Text objects are hinted: `i` and `a` are hooked in Visual and
   Operator-pending mode by default, so pausing in `di`, `ca` or `va` lists
   every built-in text object plus any `i%`-style object a plugin installs.

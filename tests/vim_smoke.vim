@@ -159,6 +159,12 @@ assert_match('simplewhichkey#Start', maparg('i', 'x'))
 assert_match('simplewhichkey#Start', maparg('a', 'x'))
 assert_equal('', maparg('i', 'n'))
 assert_equal('', maparg('a', 'n'))
+# Insert and command-line mode carry two prefixes nothing else can enumerate:
+# the register CTRL-R takes, and the completion kind CTRL-X picks.
+assert_match('simplewhichkey#InsertHook', maparg('<C-r>', 'i'))
+assert_match('simplewhichkey#InsertHook', maparg('<C-x>', 'i'))
+assert_match('simplewhichkey#InsertHook', maparg('<C-r>', 'c'))
+assert_equal('', maparg('<C-x>', 'c'), 'CTRL-X completion is Insert mode only')
 
 # A local mapping may shadow the plugin's global hook. Disable must still find
 # and remove that hidden hook while retaining the local mapping.
@@ -294,6 +300,31 @@ assert_equal('a-braced-block', visual_a.B.desc)
 # Nothing hangs off Normal-mode i/a: text objects do not exist there.
 assert_false(has_key(simplewhichkey#Keys('n', 'i'), 'w'))
 assert_false(has_key(simplewhichkey#Keys('n', 'a'), 'w'))
+
+# CTRL-X completion kinds, which nobody remembers more than two of.
+var completion = simplewhichkey#Keys('i', '<C-x>')
+assert_equal('omni-completion', completion['<C-O>'].desc)
+assert_equal('file-names', completion['<C-F>'].desc)
+assert_equal('spelling-suggestions', completion.s.desc)
+assert_false(has_key(completion, '<C-S>'),
+  'the Ctrl alias of a plain completion key is a duplicate here too')
+
+# CTRL-R ends in a register name, in Insert and on the command line alike, and
+# its three CTRL sub-forms take one as well.
+setreg('a', 'register-a-content')
+var insert_registers = simplewhichkey#Keys('i', '<C-r>')
+assert_equal('register-a-content', insert_registers.a.desc)
+assert_equal('dynamic', insert_registers.a.source)
+assert_true(insert_registers['<C-R>'].group)
+assert_equal('expression-register', insert_registers['='].desc)
+assert_equal('register-a-content',
+  simplewhichkey#Keys('i', '<C-r><C-r>').a.desc)
+assert_equal('register-a-content', simplewhichkey#Keys('c', '<C-r>').a.desc)
+# While typing, '"' and the mark keys are ordinary text, so nothing hangs off
+# them, and CTRL-X means nothing on the command line.
+assert_equal({}, simplewhichkey#Keys('i', "'"))
+assert_equal({}, simplewhichkey#Keys('i', '"'))
+assert_equal({}, simplewhichkey#Keys('c', '<C-x>'))
 
 var operator_g = simplewhichkey#Keys('o', 'g')
 assert_equal('first-line', operator_g.g.desc)

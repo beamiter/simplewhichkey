@@ -49,6 +49,25 @@ what you chose, because the pending operator is never cancelled.
 ╰─────────────────────────────────────────────────────────────────────────────╯
 ```
 
+The same is true while you type. `<C-r>` in Insert mode or on the command line
+lists every register that holds something, with a preview of its contents, so
+the choice is made by reading rather than by remembering which letter you
+yanked into; `<C-r><C-r>`, `<C-r><C-o>` and `<C-r><C-p>` lead to the same list.
+`<C-x>` lists the completion kinds nobody remembers more than two of — whole
+lines, file names, tags, omni, dictionary, thesaurus. Both return the chosen
+keys from an `<expr>` mapping instead of feeding them, so the text typed so far
+and the half-written command line are Vim's own throughout; the panel stands
+aside entirely while a completion menu is open, and `<Esc>` dismisses it
+without leaving Insert mode.
+
+```
+╭─ <C-R> ─────────────────────────────────────────────────────────────────────╮
+│ " → the last yank         0 → the last yank      a → register-a-content     │
+│ % → README.md             : → SimpleWhichKeyHea  <C-O> → +insert-as-typed   │
+│ = → expression-register   / → whichkey           <C-R> → +insert-literally  │
+╰─────────────────────────────────────────────────────────────────────────────╯
+```
+
 On narrow terminals or deliberately short panels, choices that do not fit are
 kept on numbered pages instead of being discarded. Scroll the mouse wheel while
 the panel is open, or use `<PageUp>` / `<PageDown>`, to move between pages.
@@ -129,6 +148,8 @@ let g:simplewhichkey_prefixes = {
       \ 'n': ['<leader>', '<localleader>', 'g', 'z', 'Z', '<C-w>', '[', ']', '"', "'", '`'],
       \ 'x': ['<leader>', '<localleader>', 'g', 'z', '[', ']', '"', "'", '`', 'i', 'a'],
       \ 'o': ['g', '[', ']', 'i', 'a'],
+      \ 'i': ['<C-r>', '<C-x>'],
+      \ 'c': ['<C-r>'],
       \ }
 
 let g:simplewhichkey_delay = 200        " ms before the panel opens
@@ -206,9 +227,10 @@ hooked prefixes list nothing. `simplewhichkey#Conflicts()` and
 - `:normal <C-w>v` in a script (with mappings, no `!`) goes through the panel's
   replay, so those keys run after the `:normal` finishes instead of inside it.
   Script code should use `:normal!` anyway.
-- Insert and command-line mode are not hooked. Operator-pending mode defaults
-  to `g`, `[`, `]`, `i` and `a`; remove the `o` entry from
-  `g:simplewhichkey_prefixes` to disable those hints.
+- Insert and command-line mode are hooked for `<C-r>` and `<C-x>` only; no
+  other prefix there is a Vim command that could be listed. Operator-pending
+  mode defaults to `g`, `[`, `]`, `i` and `a`; remove the `o`, `i` or `c` entry
+  from `g:simplewhichkey_prefixes` to disable those hints.
 - The operator keys themselves (`d`, `c`, `y`) are not hooked: hinting them
   would mean listing every motion after the most-used key in Vim. `i` and `a`
   are hot enough that they get their own entry in the delay table if the
