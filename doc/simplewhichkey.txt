@@ -221,11 +221,17 @@ Both accept a mode as the last argument, "n" by default.
 
                                                       *:SimpleWhichKeyOperator*
 :SimpleWhichKeyOperator [prefix]
-                            The same, listing operator-pending mappings and
-                            built-in motions; [prefix] defaults to "g".  The
-                            default operator prefixes are "g", "[", "]", "i"
-                            and "a".  Counts, named registers and Vim's
-                            default-register behavior survive replay.
+                            Browse operator-pending mappings and built-in
+                            motions; [prefix] defaults to "g", and
+                            ":SimpleWhichKeyOperator i" is the way to read the
+                            text object list without pressing an operator.
+                            No operator is pending behind a command line, so
+                            the chosen sequence is reported, not executed:
+                            operator-pending keys mean something else entirely
+                            in Normal mode.  Real operator hints -- where the
+                            count, the register and Vim's default-register
+                            behavior all survive -- come from pausing inside
+                            "d", "c" or "y" itself.
 
                                                        *:SimpleWhichKeyRefresh*
 :SimpleWhichKeyRefresh      Take the configured prefixes again.  Needed after

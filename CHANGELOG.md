@@ -4,6 +4,16 @@ All notable changes to SimpleWhichKey are documented here.
 
 ## Unreleased - 2026-08-07
 
+### Fixed
+
+- `:SimpleWhichKeyOperator` no longer replays the chosen sequence into Normal
+  mode. Nothing is pending behind a command line, so an operator-pending
+  motion means nothing on its own and the same keys are a different command in
+  Normal mode: with `onoremap gx iw` the panel advertised a text object and
+  choosing it opened the URL under the cursor. The command now browses and
+  reports the sequence. `:SimpleWhichKeyOperator i` is the way to read the
+  text object list without pressing an operator.
+
 ### Panel evolution
 
 - Text objects are hinted: `i` and `a` are hooked in Visual and

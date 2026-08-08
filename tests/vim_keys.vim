@@ -126,6 +126,34 @@ var steps = [
   },
   () => assert_false(PanelVisible(), 'operator command panel closes'),
 
+  # No operator is pending behind :SimpleWhichKeyOperator, so choosing an entry
+  # must not replay it into Normal mode -- there the same keys are a different
+  # command, and here the Normal gp would fire instead of the omap listed.
+  () => {
+    nnoremap <silent> gp <Cmd>let g:hit = 'normal-gp'<CR>
+    onoremap gp iw
+    g:hit = ''
+    PutLines(['keep browse keep'])
+    cursor(1, 6)
+    Type("\<F8>")
+  },
+  () => {
+    assert_true(PanelVisible(), 'operator command panel before a selection')
+    assert_match('iw', PanelText(), 'the operator-only gp omap is listed')
+    Type('p')
+  },
+  () => {
+    assert_true(WaitFor(() => !PanelVisible()),
+      'operator command panel closed after choosing')
+    assert_equal('', g:hit,
+      'browsing operator hints must not run the Normal-mode command')
+    assert_equal('keep browse keep', getline(1),
+      'browsing operator hints changes no text')
+    assert_match('^n', mode(1))
+    nunmap gp
+    ounmap gp
+  },
+
   # --- <C-w> opens the built-in window panel and v splits ------------------
   () => Type("\<C-w>"),
   () => {

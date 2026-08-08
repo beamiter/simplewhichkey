@@ -174,7 +174,7 @@ Both take a mode as their last argument (`'n'` by default, `'x'` for visual).
 | --- | --- |
 | `:SimpleWhichKey [prefix]` | open the panel for a prefix, default the leader |
 | `:SimpleWhichKeyVisual [prefix]` | the same for visual mode mappings |
-| `:SimpleWhichKeyOperator [prefix]` | operator mappings/motions; defaults to `g` |
+| `:SimpleWhichKeyOperator [prefix]` | browse operator mappings/motions; defaults to `g` |
 | `:SimpleWhichKeyRefresh` | re-take the prefixes, e.g. after changing the leader |
 | `:SimpleWhichKeyToggle` | hints on/off |
 | `:SimpleWhichKeyHealth` | which prefixes are hooked, and what they hold |

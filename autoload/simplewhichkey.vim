@@ -807,9 +807,36 @@ export def Keys(mode: string, prefix: string): dict<any>
   return out
 enddef
 
+# Browse a level without executing what is chosen.  :SimpleWhichKeyOperator is
+# typed on the command line, so no operator is pending behind it and the motion
+# it lists means nothing on its own.  Replaying the selection would run it in
+# Normal mode, where the same keys are a different command entirely -- with
+# `onoremap gx iw` the panel advertises a text object and choosing it would
+# open the URL under the cursor.  So report the sequence instead.
+def Browse(prefix: string, mode: string)
+  var raw_prefix = simplewhichkey#keys#Termcodes(prefix)
+  if empty(raw_prefix) || !Flag('simplewhichkey_enable', 1) || active
+    return
+  endif
+  if empty(Level(mode, raw_prefix))
+    Notify('nothing is listed under ' .. simplewhichkey#keys#Label(raw_prefix))
+    return
+  endif
+  var selected = SelectSequence(raw_prefix, mode)
+  if selected.aborted
+    return
+  endif
+  echo printf('[SimpleWhichKey] operator-pending motion: %s',
+    Title(selected.sequence))
+enddef
+
 # :SimpleWhichKey [prefix]
 export def Show(argument: string, mode: string = 'n')
   var prefix = empty(argument) ? (mode ==# 'o' ? 'g' : '<leader>') : argument
+  if mode ==# 'o'
+    Browse(prefix, mode)
+    return
+  endif
   Start(prefix, mode)
 enddef
 
