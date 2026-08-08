@@ -83,6 +83,11 @@ def OperatorHooked(): bool
   return maparg('g', 'o') =~# 'simplewhichkey#OperatorHook'
 enddef
 
+def TextObjectHooked(): bool
+  return maparg('i', 'o') =~# 'simplewhichkey#OperatorHook'
+    && maparg('a', 'x') =~# 'simplewhichkey#Start'
+enddef
+
 def WaitFor(Cond: func(): bool, ms: number = 1000): bool
   var waited = 0
   while waited < ms
@@ -353,6 +358,62 @@ var steps = [
   },
   () => assert_equal(['{', '}', 'middle', '{', 'two', '}', 'tail'],
     getline(1, '$'), 'd]} replays an operator-valid bracket motion'),
+
+  # Text objects are the half of the grammar Vim cannot show. i/a are hooked in
+  # Operator-pending mode through the expr hook and in Visual mode through the
+  # <Cmd> hook, so both a pending operator and a live selection survive.
+  () => {
+    assert_true(WaitFor(() => TextObjectHooked()),
+      'text object hooks were not installed')
+    PutLines(['keep delete keep'])
+    cursor(1, 6)
+    Type('di')
+  },
+  () => {
+    assert_true(PanelVisible(), 'i panel opens after a pending delete')
+    assert_equal('i', PanelTitle())
+    assert_match('inner-word', PanelText())
+    Type('w')
+  },
+  () => {
+    assert_true(WaitFor(() => TextObjectHooked()))
+    assert_equal('keep  keep', getline(1), 'diw completed through the panel')
+    PutLines(['x((one))y'])
+    cursor(1, 4)
+    Type('d2i')
+  },
+  () => {
+    assert_true(PanelVisible(), 'd2i reaches the text object panel')
+    Type('(')
+  },
+  () => {
+    assert_true(WaitFor(() => TextObjectHooked()))
+    assert_equal('x()y', getline(1),
+      'd2i( keeps the count Vim had already taken')
+    PutLines(['alpha beta gamma'])
+    cursor(1, 7)
+    Type('va')
+  },
+  () => {
+    assert_true(PanelVisible(), 'a panel opens in Visual mode')
+    assert_equal('a', PanelTitle())
+    assert_match('a-word-with-white-space', PanelText())
+    Type('w')
+  },
+  () => {
+    assert_true(WaitFor(() => col('.') == 11),
+      'vaw extended the selection: col=' .. col('.')
+      .. ' mode=' .. mode(1) .. ' state=' .. state('mo'))
+    Type('d')
+  },
+  () => {
+    assert_equal('alpha gamma', getline(1),
+      'a Visual text object chosen from the panel selected the real object')
+    assert_true(WaitFor(() => Hooked() && TextObjectHooked()),
+      'hooks restored after a Visual text object replay')
+    PutLines(['one', 'two', 'three', 'four'])
+    cursor(1, 1)
+  },
 
   # Esc is consumed by getcharstr() and returned from the expr hook, cancelling
   # the still-live operator without changing text.

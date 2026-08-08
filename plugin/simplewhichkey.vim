@@ -88,11 +88,13 @@ enddef
 # why they are hooked as well.
 const DEFAULT_PREFIXES = {
   n: ['<leader>', '<localleader>', 'g', 'z', 'Z', '<C-w>', '[', ']', '"', "'", '`'],
-  x: ['<leader>', '<localleader>', 'g', 'z', '[', ']', '"', "'", '`'],
-  # Motions beginning with g/[ /] are easy to forget after an operator. The
-  # expr hook keeps Vim's original operator/count/register state live; exact
-  # user omaps still win their prefix slots.
-  o: ['g', '[', ']'],
+  x: ['<leader>', '<localleader>', 'g', 'z', '[', ']', '"', "'", '`', 'i', 'a'],
+  # Motions beginning with g/[ /] are easy to forget after an operator, and text
+  # objects behind i/a are the most forgotten part of the language: `d` cannot
+  # show them and nothing else can enumerate them.  The expr hook keeps Vim's
+  # original operator/count/register state live; exact user omaps still win
+  # their prefix slots.
+  o: ['g', '[', ']', 'i', 'a'],
 }
 
 g:simplewhichkey_enable = Flag(get(g:, 'simplewhichkey_enable', 1), 1)

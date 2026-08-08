@@ -33,6 +33,22 @@ maintain. The same hints now stay available after an operator: pause in `dg`,
 count. Named registers and Vim's current default-register behavior are carried
 through the replay as well.
 
+Text objects get the same treatment, and they need it most: they exist only in
+Visual and Operator-pending mode, so pressing `d` cannot show them and nothing
+in Vim can enumerate them. Pause in `di`, `ca` or `va` and the panel lists
+every text object — `iw`, `ip`, `i(`, `at`, `i"` and the rest — alongside any
+`i%`-style object your plugins install. `d2i(` keeps its count and `.` repeats
+what you chose, because the pending operator is never cancelled.
+
+```
+╭─ i ─────────────────────────────────────────────────────────────────────────╮
+│ " → inner-double-quoted   [ → inner-bracketed   b → inner-parenthesised      │
+│ ' → inner-single-quoted   ] → inner-bracketed   p → inner-paragraph          │
+│ ( → inner-parenthesised   B → inner-braced      s → inner-sentence           │
+│ ) → inner-parenthesised   W → inner-WORD        t → inner-tag-block          │
+╰─────────────────────────────────────────────────────────────────────────────╯
+```
+
 On narrow terminals or deliberately short panels, choices that do not fit are
 kept on numbered pages instead of being discarded. Scroll the mouse wheel while
 the panel is open, or use `<PageUp>` / `<PageDown>`, to move between pages.
@@ -111,8 +127,8 @@ let g:simplewhichkey_delay = {
 " Which prefixes get a panel.  This is the default.
 let g:simplewhichkey_prefixes = {
       \ 'n': ['<leader>', '<localleader>', 'g', 'z', 'Z', '<C-w>', '[', ']', '"', "'", '`'],
-      \ 'x': ['<leader>', '<localleader>', 'g', 'z', '[', ']', '"', "'", '`'],
-      \ 'o': ['g', '[', ']'],
+      \ 'x': ['<leader>', '<localleader>', 'g', 'z', '[', ']', '"', "'", '`', 'i', 'a'],
+      \ 'o': ['g', '[', ']', 'i', 'a'],
       \ }
 
 let g:simplewhichkey_delay = 200        " ms before the panel opens
@@ -179,8 +195,12 @@ the quickest way to check a configuration without pressing anything.
   replay, so those keys run after the `:normal` finishes instead of inside it.
   Script code should use `:normal!` anyway.
 - Insert and command-line mode are not hooked. Operator-pending mode defaults
-  to `g`, `[` and `]`; remove the `o` entry from
+  to `g`, `[`, `]`, `i` and `a`; remove the `o` entry from
   `g:simplewhichkey_prefixes` to disable those hints.
+- The operator keys themselves (`d`, `c`, `y`) are not hooked: hinting them
+  would mean listing every motion after the most-used key in Vim. `i` and `a`
+  are hot enough that they get their own entry in the delay table if the
+  panel gets in your way.
 
 ## Tests
 

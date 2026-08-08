@@ -6,6 +6,13 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- Text objects are hinted: `i` and `a` are hooked in Visual and
+  Operator-pending mode by default, so pausing in `di`, `ca` or `va` lists
+  every built-in text object plus any `i%`-style object a plugin installs.
+  Operator-pending `i`/`a` use the same expression hook as `g`, so `d2i(`
+  keeps its count and `.` repeats the choice; Visual `i`/`a` keep the live
+  selection. Normal-mode `i`/`a` are untouched — they start Insert.
+
 - `g:simplewhichkey_delay` now also accepts a dictionary keyed by prefix
   notation, optionally scoped to a mode (`o:g`), with a `default` entry. A
   prefix that other mappings extend has already cost a full `'timeoutlen'` and

@@ -10,6 +10,7 @@ CONTENTS                                             *simplewhichkey-contents*
     2. Requirements .............. |simplewhichkey-requirements|
     3. How it works .............. |simplewhichkey-mechanics|
     4. Using the panel ........... |simplewhichkey-panel|
+       Text objects .............. |simplewhichkey-textobjects|
     5. Options ................... |simplewhichkey-options|
     6. Descriptions .............. |simplewhichkey-descriptions|
     7. Commands .................. |simplewhichkey-commands|
@@ -86,6 +87,31 @@ disabled. Page position is remembered separately for every visited level
 during the current key sequence, so entering a group and pressing <BS> returns
 to the same parent page.
 
+TEXT OBJECTS                                       *simplewhichkey-textobjects*
+
+Text objects exist only in Visual and Operator-pending mode, which is also why
+they are the most forgotten part of Vim's grammar: pressing "d" cannot show
+them and nothing in the editor can enumerate them.  "i" and "a" are therefore
+hooked in both modes by default, so pausing in "di", "ca" or "va" lists every
+|text-objects| entry -- word, WORD, sentence, paragraph, the bracket, brace,
+angle, paren and tag blocks, and the three quoted forms -- with the
+interchangeable keys ("i(", "i)", "ib") all shown, because the point is to
+reach the one you remember.
+
+Operator-pending "i"/"a" go through the same |<expr>| hook as "g": the pending
+operator, its multiplied count and its register stay live, so "d2i(" keeps its
+count and "." repeats what you chose.  Visual "i"/"a" go through the |<Cmd>|
+hook and keep the live selection.
+
+Any |:omap| or |:xmap| under "i" or "a" is discovered the usual way, so plugin
+text objects such as vim-matchup's "i%" appear next to the built-in ones.
+
+"i" and "a" are hot keys.  If the panel gets in the way, either give them a
+shorter wait through |g:simplewhichkey_delay| >
+    let g:simplewhichkey_delay = {'default': 200, 'i': 80, 'a': 80}
+<
+or drop them from |g:simplewhichkey_prefixes| altogether.
+
 ==============================================================================
 5. OPTIONS                                            *simplewhichkey-options*
 
@@ -95,11 +121,15 @@ Which prefixes open a panel, per mode.  Only "n", "x" and "o" are used. >
           \ 'n': ['<leader>', '<localleader>', 'g', 'z', 'Z', '<C-w>',
           \       '[', ']', '"', "'", '`'],
           \ 'x': ['<leader>', '<localleader>', 'g', 'z', '[', ']',
-          \       '"', "'", '`'],
-          \ 'o': ['g', '[', ']'],
+          \       '"', "'", '`', 'i', 'a'],
+          \ 'o': ['g', '[', ']', 'i', 'a'],
           \ }
 <
 A prefix that is already mapped by you is left alone.
+
+"i" and "a" are the text object introducers and appear in the "x" and "o"
+lists only; in Normal mode they start Insert.  See
+|simplewhichkey-textobjects|.
 
                                                     *g:simplewhichkey_enable*
 Set to 0 to keep the plugin loaded but out of the way.  Default 1.
@@ -193,9 +223,9 @@ Both accept a mode as the last argument, "n" by default.
 :SimpleWhichKeyOperator [prefix]
                             The same, listing operator-pending mappings and
                             built-in motions; [prefix] defaults to "g".  The
-                            default operator prefixes are "g", "[" and "]".
-                            Counts, named registers and Vim's default-register
-                            behavior survive replay.
+                            default operator prefixes are "g", "[", "]", "i"
+                            and "a".  Counts, named registers and Vim's
+                            default-register behavior survive replay.
 
                                                        *:SimpleWhichKeyRefresh*
 :SimpleWhichKeyRefresh      Take the configured prefixes again.  Needed after
@@ -247,8 +277,10 @@ simplewhichkey#Start({prefix} [, {mode}])             *simplewhichkey#Start()*
 - |:normal| without "!" in a script goes through the replay, so those keys run
   after the :normal command finishes rather than inside it.  Script code should
   use :normal! anyway.
-- Operator-pending hints default to "g", "[" and "]". An exact user |:omap|
-  on a prefix keeps ownership; remove the "o" entry from
+- Operator-pending hints default to "g", "[", "]", "i" and "a". An exact user
+  |:omap| on a prefix keeps ownership; remove the "o" entry from
   |g:simplewhichkey_prefixes| to turn the default hooks off.
+- The operator keys themselves ("d", "c", "y") are not hooked: hinting them
+  would mean listing every motion after the most-used key in Vim.
 
 vim:tw=78:ts=8:noet:ft=help:norl:

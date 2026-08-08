@@ -87,6 +87,14 @@ assert_match('simplewhichkey#Start', maparg('<C-w>', 'n'))
 assert_match('simplewhichkey#Start', maparg('g', 'n'))
 assert_match('simplewhichkey#Start', maparg('<Space>', 'x'))
 assert_match('simplewhichkey#OperatorHook', maparg('g', 'o'))
+# Text objects live in Visual and Operator-pending mode only; in Normal mode
+# i and a start Insert, so those slots must be left alone.
+assert_match('simplewhichkey#OperatorHook', maparg('i', 'o'))
+assert_match('simplewhichkey#OperatorHook', maparg('a', 'o'))
+assert_match('simplewhichkey#Start', maparg('i', 'x'))
+assert_match('simplewhichkey#Start', maparg('a', 'x'))
+assert_equal('', maparg('i', 'n'))
+assert_equal('', maparg('a', 'n'))
 
 # A local mapping may shadow the plugin's global hook. Disable must still find
 # and remove that hidden hook while retaining the local mapping.
@@ -191,6 +199,17 @@ g:simplewhichkey_hide_aliases = 1
 var visual = simplewhichkey#Keys('x', '<leader>')
 assert_equal(['f'], keys(visual))
 assert_true(visual.f.group)
+
+var operator_i = simplewhichkey#Keys('o', 'i')
+assert_equal('inner-word', operator_i.w.desc)
+assert_equal('inner-parenthesised', operator_i['('].desc)
+assert_equal('inner-tag-block', operator_i.t.desc)
+var visual_a = simplewhichkey#Keys('x', 'a')
+assert_equal('a-word-with-white-space', visual_a.w.desc)
+assert_equal('a-braced-block', visual_a.B.desc)
+# Nothing hangs off Normal-mode i/a: text objects do not exist there.
+assert_false(has_key(simplewhichkey#Keys('n', 'i'), 'w'))
+assert_false(has_key(simplewhichkey#Keys('n', 'a'), 'w'))
 
 var operator_g = simplewhichkey#Keys('o', 'g')
 assert_equal('first-line', operator_g.g.desc)

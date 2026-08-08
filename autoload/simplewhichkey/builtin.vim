@@ -316,6 +316,55 @@ const QUIT = {
   'Q': 'quit-without-writing',
 }
 
+# Text objects.  These exist only in Visual and Operator-pending mode, which is
+# also why they are the most forgotten half of Vim's grammar: `d` shows nothing
+# and there is no way to ask.  Vim gives most blocks two or three interchangeable
+# keys (i( == i) == ib) and all of them are listed, because the point of the
+# panel is to reach the one you happen to remember.
+const TEXTOBJECT_INNER = {
+  'w': 'inner-word',
+  'W': 'inner-WORD',
+  's': 'inner-sentence',
+  'p': 'inner-paragraph',
+  '(': 'inner-parenthesised',
+  ')': 'inner-parenthesised',
+  'b': 'inner-parenthesised',
+  '{': 'inner-braced',
+  '}': 'inner-braced',
+  'B': 'inner-braced',
+  '[': 'inner-bracketed',
+  ']': 'inner-bracketed',
+  '<': 'inner-angled',
+  '>': 'inner-angled',
+  't': 'inner-tag-block',
+  '"': 'inner-double-quoted',
+  "'": 'inner-single-quoted',
+  '`': 'inner-backtick-quoted',
+}
+
+# The `a` forms take the delimiters with them, and the word/sentence/paragraph
+# forms take the white space that follows.
+const TEXTOBJECT_AROUND = {
+  'w': 'a-word-with-white-space',
+  'W': 'a-WORD-with-white-space',
+  's': 'a-sentence-with-white-space',
+  'p': 'a-paragraph-with-blank-lines',
+  '(': 'a-parenthesised-block',
+  ')': 'a-parenthesised-block',
+  'b': 'a-parenthesised-block',
+  '{': 'a-braced-block',
+  '}': 'a-braced-block',
+  'B': 'a-braced-block',
+  '[': 'a-bracketed-block',
+  ']': 'a-bracketed-block',
+  '<': 'an-angled-block',
+  '>': 'an-angled-block',
+  't': 'a-tag-block',
+  '"': 'a-double-quoted-string',
+  "'": 'a-single-quoted-string',
+  '`': 'a-backtick-quoted-string',
+}
+
 # prefix notation -> {mode -> {relative notation -> description}}
 const TABLES = {
   '<C-w>': {n: WINDOW},
@@ -324,6 +373,10 @@ const TABLES = {
   '[': {n: BRACKET_BACKWARD, x: BRACKET_BACKWARD, o: BRACKET_BACKWARD_OPERATOR},
   ']': {n: BRACKET_FORWARD, x: BRACKET_FORWARD, o: BRACKET_FORWARD_OPERATOR},
   'Z': {n: QUIT},
+  # No Normal-mode entry: `i` and `a` there start Insert mode, not a text
+  # object, and hooking them would be a different feature entirely.
+  'i': {x: TEXTOBJECT_INNER, o: TEXTOBJECT_INNER},
+  'a': {x: TEXTOBJECT_AROUND, o: TEXTOBJECT_AROUND},
 }
 
 # mode -> raw sequence -> description, built on first use.
