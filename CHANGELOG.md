@@ -6,6 +6,13 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- `g:simplewhichkey_delay` now also accepts a dictionary keyed by prefix
+  notation, optionally scoped to a mode (`o:g`), with a `default` entry. A
+  prefix that other mappings extend has already cost a full `'timeoutlen'` and
+  wants `0`; one Vim dispatches instantly wants a real pause. The plain number
+  form is unchanged. `:SimpleWhichKeyHealth` now prints the delay every hooked
+  prefix resolves to, next to its mapping and built-in counts.
+
 - Operator-pending mode is now first-class: `g`, `[` and `]` are hinted by
   default after operators, and `:SimpleWhichKeyOperator` exposes the mode
   explicitly. The expression hook leaves Vim's original operator, multiplied

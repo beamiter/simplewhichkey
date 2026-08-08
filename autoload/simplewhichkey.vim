@@ -615,12 +615,62 @@ def Ambiguous(mode: string, sequence: string): bool
   return false
 enddef
 
-def InitialDelay(mode: string, sequence: string): number
-  var delay = get(g:, 'simplewhichkey_delay', 200)
-  if type(delay) != v:t_number || delay < 0
-    delay = 200
+# How long this particular prefix waits.  One number applies everywhere; a
+# dictionary lets prefixes differ, which they need to: the leader has already
+# cost a full 'timeoutlen' before the hook runs, <C-w> is dispatched instantly
+# and wants a real pause, and a text object introducer sits on the hottest key
+# in the language and wants almost none.  Lookup order is 'mode:prefix'
+# ("o:i"), then 'prefix', then 'default'.  Prefix keys are compared after
+# termcode expansion, so '<leader>', '<Space>' and a literal ' ' are one key.
+def ConfiguredDelay(mode: string, sequence: string): number
+  var configured = get(g:, 'simplewhichkey_delay', 200)
+  if type(configured) == v:t_number
+    return configured >= 0 ? configured : 200
   endif
-  return Ambiguous(mode, sequence) ? 0 : delay
+  if type(configured) != v:t_dict
+    return 200
+  endif
+  var fallback = 200
+  var plain = -1
+  var scoped = -1
+  for [key, value] in items(configured)
+    if type(value) != v:t_number || value < 0
+      continue
+    endif
+    if key ==# 'default'
+      fallback = value
+      continue
+    endif
+    var notation = key
+    var qualifies = key =~# '^[nxo]:'
+    if qualifies
+      if key[0] !=# mode
+        continue
+      endif
+      notation = strpart(key, 2)
+    endif
+    if simplewhichkey#keys#Termcodes(notation) !=# sequence
+      continue
+    endif
+    if qualifies
+      scoped = value
+    else
+      plain = value
+    endif
+  endfor
+  if scoped >= 0
+    return scoped
+  endif
+  return plain >= 0 ? plain : fallback
+enddef
+
+# The delay a prefix resolves to, for :SimpleWhichKeyHealth and for tests.
+export def ResolvedDelay(mode: string, prefix: string): number
+  return ConfiguredDelay(mode, simplewhichkey#keys#Termcodes(prefix))
+enddef
+
+def InitialDelay(mode: string, sequence: string): number
+  return Ambiguous(mode, sequence) ? 0 : ConfiguredDelay(mode, sequence)
 enddef
 
 def SelectSequence(raw_prefix: string, mode: string): dict<any>
@@ -800,8 +850,12 @@ export def Health()
   add(lines, printf('  popup window   : %s', has('popupwin') ? 'yes' : 'NO'))
   add(lines, printf('  text properties: %s', has('textprop') ? 'yes' : 'NO'))
   add(lines, printf('  enabled        : %s', Flag('simplewhichkey_enable', 1) ? 'yes' : 'no'))
-  add(lines, printf('  delay          : %d ms (timeoutlen %d ms)',
-    get(g:, 'simplewhichkey_delay', 200), &timeoutlen))
+  var configured_delay = get(g:, 'simplewhichkey_delay', 200)
+  add(lines, printf('  delay          : %s (timeoutlen %d ms)',
+    type(configured_delay) == v:t_number
+      ? printf('%d ms', configured_delay)
+      : string(configured_delay),
+    &timeoutlen))
   var description_count = 0
   var group_count = 0
   for registered in values(descriptions)
@@ -825,13 +879,17 @@ export def Health()
         status = 'taken by another mapping'
       endif
       var raw = simplewhichkey#keys#Termcodes(lhs)
-      add(lines, printf('    %-10s %-24s %d mapping(s), %d built-in(s)',
+      # The resolved delay belongs next to the prefix it applies to: with a
+      # per-prefix table it is the only place the effective value is visible.
+      add(lines, printf(
+        '    %-10s %-24s %d mapping(s), %d built-in(s), %d ms',
         lhs,
         status,
         CountMappings(mode, raw),
         len(filter(
           keys(simplewhichkey#builtin#Table(mode)),
-          (_, key) => simplewhichkey#keys#StartsWith(key, raw)))))
+          (_, key) => simplewhichkey#keys#StartsWith(key, raw))),
+        ConfiguredDelay(mode, raw)))
     endfor
   endfor
   echo join(lines, "\n")

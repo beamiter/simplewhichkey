@@ -229,6 +229,47 @@ leader = simplewhichkey#Keys('n', '<leader>')
 assert_equal('+finder', leader.f.desc)
 assert_equal('files', simplewhichkey#Keys('n', '<leader>f').f.desc)
 
+# ------------------------------------------------------------------ delay ---
+
+# One number still means the same wait everywhere.
+g:simplewhichkey_delay = 120
+assert_equal(120, simplewhichkey#ResolvedDelay('n', 'g'))
+assert_equal(120, simplewhichkey#ResolvedDelay('o', '<leader>'))
+
+# A table resolves 'mode:prefix', then 'prefix', then 'default'.  Prefix keys
+# are compared after termcode expansion, so <leader> and <Space> are one key.
+g:simplewhichkey_delay = {
+  default: 200,
+  '<leader>': 0,
+  i: 80,
+  'o:i': 40,
+}
+assert_equal(200, simplewhichkey#ResolvedDelay('n', 'g'))
+assert_equal(0, simplewhichkey#ResolvedDelay('n', '<Space>'))
+assert_equal(0, simplewhichkey#ResolvedDelay('x', '<leader>'))
+assert_equal(80, simplewhichkey#ResolvedDelay('x', 'i'))
+assert_equal(40, simplewhichkey#ResolvedDelay('o', 'i'))
+# A mode-qualified entry says nothing about the other modes.
+assert_equal(80, simplewhichkey#ResolvedDelay('n', 'i'))
+
+# Garbage never reaches the panel loop as a wait.
+g:simplewhichkey_delay = 'nope'
+assert_equal(200, simplewhichkey#ResolvedDelay('n', 'g'))
+g:simplewhichkey_delay = {g: 'nope'}
+assert_equal(200, simplewhichkey#ResolvedDelay('n', 'g'))
+g:simplewhichkey_delay = 200
+
+# Health must survive a table where it used to printf('%d'), and report the
+# delay each prefix resolves to -- with a table that is the only place the
+# effective value can be seen.
+g:simplewhichkey_delay = {default: 200, g: 250}
+var delay_health = execute('SimpleWhichKeyHealth')
+assert_match('delay\s*: {', delay_health)
+assert_match('g\s\+hooked\s\+\d\+ mapping(s), \d\+ built-in(s), 250 ms',
+  delay_health)
+g:simplewhichkey_delay = 200
+assert_match('delay\s*: 200 ms', execute('SimpleWhichKeyHealth'))
+
 # A hidden key disappears from the panel but keeps working as a mapping.
 g:simplewhichkey_ignore = ['<leader>e']
 assert_false(has_key(simplewhichkey#Keys('n', '<leader>'), 'e'))

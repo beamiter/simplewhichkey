@@ -108,6 +108,26 @@ Set to 0 to keep the plugin loaded but out of the way.  Default 1.
 Milliseconds to wait before drawing the panel, for prefixes Vim dispatches
 immediately.  Default 200.
 
+It may also be a dictionary, so prefixes that need different waits can have
+them.  Keys are prefix notation, optionally scoped to a mode with "n:", "x:"
+or "o:", plus "default" for everything not named: >
+    let g:simplewhichkey_delay = {
+          \ 'default': 200,
+          \ '<leader>': 0,
+          \ 'i': 80,
+          \ 'a': 80,
+          \ 'o:g': 250,
+          \ }
+<
+Lookup order is "mode:prefix", then "prefix", then "default".  Prefix keys are
+compared after termcode expansion, so "<leader>", "<Space>" and a literal " "
+name the same prefix.  |:SimpleWhichKeyHealth| prints the delay every hooked
+prefix resolves to.
+
+A prefix that other mappings extend has already cost a full 'timeoutlen'
+before the hook runs, so 0 suits the leader; a prefix Vim dispatches instantly
+needs a real pause.
+
                                                   *g:simplewhichkey_position*
 "bottom" (default), "top" or "center".
 

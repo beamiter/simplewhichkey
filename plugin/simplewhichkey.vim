@@ -47,6 +47,29 @@ def Text(value: any, fallback: string): string
   return type(value) == v:t_string ? value : fallback
 enddef
 
+# The delay is one number, or a table of them keyed by prefix notation with an
+# optional "mode:" qualifier and a "default" entry.  Every value is clamped the
+# same way a bare number is, and an unusable entry is dropped rather than
+# allowed to reach the panel loop.
+def Delay(value: any, fallback: number): any
+  if type(value) != v:t_dict
+    return ClampNumber(value, fallback, 0, 5000)
+  endif
+  var out: dict<number> = {}
+  for [key, entry] in items(value)
+    if type(entry) == v:t_number
+      out[key] = ClampNumber(entry, fallback, 0, 5000)
+    endif
+  endfor
+  if empty(out)
+    return fallback
+  endif
+  if !has_key(out, 'default')
+    out['default'] = fallback
+  endif
+  return out
+enddef
+
 def Prefixes(value: any, fallback: dict<list<string>>): dict<any>
   if type(value) != v:t_dict
     return fallback
@@ -74,7 +97,7 @@ const DEFAULT_PREFIXES = {
 
 g:simplewhichkey_enable = Flag(get(g:, 'simplewhichkey_enable', 1), 1)
 g:simplewhichkey_prefixes = Prefixes(get(g:, 'simplewhichkey_prefixes', {}), DEFAULT_PREFIXES)
-g:simplewhichkey_delay = ClampNumber(get(g:, 'simplewhichkey_delay', 200), 200, 0, 5000)
+g:simplewhichkey_delay = Delay(get(g:, 'simplewhichkey_delay', 200), 200)
 g:simplewhichkey_max_height = ClampNumber(get(g:, 'simplewhichkey_max_height', 0), 0, 0, 100)
 g:simplewhichkey_max_desc_width = ClampNumber(get(g:, 'simplewhichkey_max_desc_width', 30), 30, 8, 120)
 g:simplewhichkey_position = Choice(

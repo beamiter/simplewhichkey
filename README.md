@@ -80,6 +80,20 @@ When a prefix has other mappings under it, Vim already waits `'timeoutlen'`
 before dispatching, so the panel opens with no further delay. `set timeoutlen=400`
 is a good companion setting.
 
+Different prefixes want different waits, so `g:simplewhichkey_delay` also
+accepts a table keyed by prefix — optionally scoped to a mode — with a
+`default` for the rest:
+
+```vim
+let g:simplewhichkey_delay = {
+      \ 'default': 200,
+      \ '<leader>': 0,
+      \ 'o:g': 250,
+      \ }
+```
+
+`:SimpleWhichKeyHealth` prints the delay every hooked prefix resolves to.
+
 ## Keys inside the panel
 
 | Key | Action |
