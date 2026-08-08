@@ -116,6 +116,7 @@ g:simplewhichkey_separator = Text(get(g:, 'simplewhichkey_separator', ' → '), 
 g:simplewhichkey_border = Flag(get(g:, 'simplewhichkey_border', 1), 1)
 g:simplewhichkey_show_builtins = Flag(get(g:, 'simplewhichkey_show_builtins', 1), 1)
 g:simplewhichkey_hide_aliases = Flag(get(g:, 'simplewhichkey_hide_aliases', 1), 1)
+g:simplewhichkey_derive = Flag(get(g:, 'simplewhichkey_derive', 1), 1)
 var configured_ignore = get(g:, 'simplewhichkey_ignore', [])
 g:simplewhichkey_ignore = type(configured_ignore) == v:t_list ? configured_ignore : []
 

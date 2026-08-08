@@ -161,6 +161,7 @@ let g:simplewhichkey_list_depth = 4     " levels :SimpleWhichKeyList descends
 let g:simplewhichkey_sort = 'key'       " key | group (groups first)
 let g:simplewhichkey_border = 1
 let g:simplewhichkey_show_builtins = 1  " Vim's own <C-w>, g, z, [, ] commands
+let g:simplewhichkey_derive = 1         " work harder at unnamed mappings
 let g:simplewhichkey_hide_aliases = 1   " hide <C-w><C-v> when <C-w>v is listed
 " Hidden from the panel, still working as keys.  Entries hide the sequence and
 " everything below it; '<leader>1**' globs the label and '/regexp/' matches it.
@@ -192,6 +193,23 @@ call simplewhichkey#Register('<leader>', 'g:which_key_map', 'n')
 ```
 
 Both take a mode as their last argument (`'n'` by default, `'x'` for visual).
+`Describe()` takes one more: with `v:true` the names live on the current
+buffer, which is what an ftplugin wants — the same key means something else in
+another filetype, and one global registry cannot say so.
+
+```vim
+call simplewhichkey#Describe({'<leader>r': 'cargo run'}, 'n', v:true)
+```
+
+Most of the time you should not need any of this. A mapping onto one of Vim's
+own commands takes that command's name — `<leader>w=` mapped to `<C-w>=` reads
+as `equalize-sizes`, an `omap` onto `iw` as `inner-word` — and a group nobody
+named is named after its children when they agree: three mappings to
+`:SimpleGitStatus`, `:SimpleGitDiff` and `:SimpleGitLog` make the group
+`+SimpleGit` rather than `+3 keys`. That second rule is deliberately hard to
+satisfy, because a group should be named after what its keys are about and not
+after a word they happen to start with; `g:simplewhichkey_derive = 0` turns
+both off.
 
 ## Commands
 

@@ -149,7 +149,10 @@ var steps = [
   },
   () => {
     assert_true(PanelVisible(), 'operator command panel before a selection')
-    assert_match('iw', PanelText(), 'the operator-only gp omap is listed')
+    # 'iw' is a text object Vim already has a name for, so the derived
+    # description says what it does rather than repeating its keys.
+    assert_match('inner-word', PanelText(),
+      'the operator-only gp omap is listed')
     Type('p')
   },
   () => {
@@ -554,7 +557,7 @@ var steps = [
   },
   () => {
     assert_true(PanelVisible(), 'slow global gx omap is shown')
-    assert_match('iw', PanelText())
+    assert_match('inner-word', PanelText())
     Type('x')
   },
   () => {

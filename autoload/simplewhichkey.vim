@@ -146,9 +146,19 @@ enddef
 # What a mapping does, guessed from its right hand side.  This is what makes
 # an unregistered configuration useful on the first run: '<Cmd>SimpleGitDiff<CR>'
 # reads as 'SimpleGitDiff' and '<Plug>(simpletree-toggle)' as 'simpletree-toggle'.
-def DeriveDescription(entry: dict<any>): string
+def DeriveDescription(entry: dict<any>, mode: string): string
   if get(entry, 'expr', 0)
     return 'expr: ' .. get(entry, 'rhs', '')
+  endif
+  # A mapping onto one of Vim's own prefixed commands already has a name in
+  # the built-in tables, and that name is better than its keys: '<leader>w='
+  # reads as 'equalize-sizes' rather than as '<C-W>='.
+  if Flag('simplewhichkey_derive', 1)
+    var builtin = get(simplewhichkey#builtin#Table(mode),
+      simplewhichkey#keys#Termcodes(get(entry, 'rhs', '')), '')
+    if !empty(builtin)
+      return builtin
+    endif
   endif
   var text = get(entry, 'rhs', '')
   text = substitute(text, '\c^<Cmd>', '', '')
@@ -163,11 +173,29 @@ def DeriveDescription(entry: dict<any>): string
   return empty(text) ? '…' : text
 enddef
 
+# Buffer-scoped registries beat the global ones, so an ftplugin can name the
+# keys it installs without knowing what the rest of the configuration called
+# them.  They are dictionaries of the same shape, written by Describe() with
+# its buffer argument rather than by hand, because the keys are raw.
 def Registered(mode: string, sequence: string): string
+  var local = get(b:, 'simplewhichkey_descriptions', {})
+  if type(local) == v:t_dict
+    var text = get(get(local, mode, {}), sequence, '')
+    if !empty(text)
+      return text
+    endif
+  endif
   return get(get(descriptions, mode, {}), sequence, '')
 enddef
 
 def RegisteredGroup(mode: string, sequence: string): string
+  var local = get(b:, 'simplewhichkey_groups', {})
+  if type(local) == v:t_dict
+    var name = get(get(local, mode, {}), sequence, '')
+    if !empty(name)
+      return name
+    endif
+  endif
   return get(get(group_names, mode, {}), sequence, '')
 enddef
 
@@ -218,21 +246,37 @@ enddef
 
 # Flat form: {'<Space>ff': 'find files', '<Space>f': '+file'}.  A description
 # starting with '+' names a group.
-export def Describe(spec: dict<string>, mode: string = 'n')
-  if !has_key(descriptions, mode)
+#
+# With {buffer} true the names live on the current buffer instead, which is
+# what an ftplugin wants: the same key means something else in another
+# filetype, and a global registry cannot say so.
+export def Describe(spec: dict<string>, mode: string = 'n', buffer: bool = false)
+  if buffer
+    if type(get(b:, 'simplewhichkey_descriptions', 0)) != v:t_dict
+      b:simplewhichkey_descriptions = {}
+    endif
+    if type(get(b:, 'simplewhichkey_groups', 0)) != v:t_dict
+      b:simplewhichkey_groups = {}
+    endif
+    if !has_key(b:simplewhichkey_descriptions, mode)
+      b:simplewhichkey_descriptions[mode] = {}
+      b:simplewhichkey_groups[mode] = {}
+    endif
+  elseif !has_key(descriptions, mode)
     descriptions[mode] = {}
     group_names[mode] = {}
   endif
   for [notation, description] in items(spec)
     var sequence = simplewhichkey#keys#Termcodes(notation)
-    if description =~# '^+'
-      group_names[mode][sequence] = description
-    else
-      descriptions[mode][sequence] = description
-    endif
+    var into = description =~# '^+'
+      ? (buffer ? b:simplewhichkey_groups[mode] : group_names[mode])
+      : (buffer ? b:simplewhichkey_descriptions[mode] : descriptions[mode])
+    into[sequence] = description
   endfor
 enddef
 
+# Drops the global registry only: buffer-scoped names belong to the buffer and
+# die with it.
 export def Forget()
   descriptions = {}
   group_names = {}
@@ -242,7 +286,7 @@ enddef
 # One level of the key tree
 # ---------------------------------------------------------------------------
 
-def AddNode(level: dict<any>, key: string, description: string, group: bool, source: string)
+def AddNode(level: dict<any>, key: string, description: string, group: bool, source: string, below: string = '')
   if !has_key(level, key)
     level[key] = {
       label: simplewhichkey#keys#Label(key),
@@ -250,12 +294,18 @@ def AddNode(level: dict<any>, key: string, description: string, group: bool, sou
       group: false,
       count: 0,
       source: source,
+      below: [],
     }
   endif
   var node = level[key]
   if group
     node.group = true
     node.count += 1
+    # What the mappings under this key are called, kept so an unnamed group
+    # can be named after them instead of counted.
+    if !empty(below)
+      add(node.below, below)
+    endif
     # A '+name' entry names the group; anything else is a leaf description and
     # must not overwrite it.
     if description =~# '^+'
@@ -374,9 +424,54 @@ def CollectMappings(level: dict<any>, mode: string, sequence: string)
       var rest = strpart(raw, strlen(sequence))
       var key = simplewhichkey#keys#First(rest)
       var leaf = strlen(key) == strlen(rest)
-      AddNode(level, key, leaf ? DeriveDescription(entry) : '', !leaf, 'map')
+      var derived = DeriveDescription(entry, mode)
+      AddNode(level, key, leaf ? derived : '', !leaf, 'map', leaf ? '' : derived)
     endfor
   endfor
+enddef
+
+# The longest beginning every text shares, cut back to a word boundary so a
+# half-word ('SimpleGitSta') can never become a name.  Word starts are capital
+# letters and anything after a separator, which covers both CamelCase command
+# names and 'git status' style ones.
+def SharedPrefix(texts: list<string>): string
+  if len(texts) < 2
+    return ''
+  endif
+  var shared = strchars(texts[0])
+  for text in texts[1 : ]
+    if empty(text)
+      return ''
+    endif
+    var index = 0
+    while index < shared && index < strchars(text)
+          && strcharpart(texts[0], index, 1) ==# strcharpart(text, index, 1)
+      index += 1
+    endwhile
+    shared = index
+    if shared == 0
+      return ''
+    endif
+  endfor
+  var chars = split(texts[0], '\zs')
+  var cut = shared == len(chars) ? shared : 0
+  for index in range(1, min([shared, len(chars) - 1]))
+    if chars[index] =~# '\u' || chars[index - 1] =~# '[^0-9A-Za-z]'
+      cut = index
+    endif
+  endfor
+  var prefix = substitute(strcharpart(texts[0], 0, cut), '[^0-9A-Za-z]\+$', '', '')
+  # A name has to dominate what it names.  'echo' in front of two different
+  # :echo commands is a shared beginning, not a subject; 'SimpleGit' in front
+  # of SimpleGitStatus and SimpleGitDiff is the subject.
+  var shortest = strchars(texts[0])
+  for text in texts
+    shortest = min([shortest, strchars(text)])
+  endfor
+  if strchars(prefix) < 3 || strchars(prefix) * 2 < shortest
+    return ''
+  endif
+  return prefix
 enddef
 
 # Everything that may follow 'sequence', keyed by the raw next key.
@@ -399,7 +494,13 @@ def Level(mode: string, sequence: string): dict<any>
       if !empty(name)
         node.desc = name
       elseif empty(node.desc)
-        node.desc = printf('+%d keys', node.count)
+        # '+N keys' says how much is behind the key and nothing about what.
+        # When every mapping under it is named after the same thing, that
+        # shared beginning is the name a user would have written by hand.
+        var derived = Flag('simplewhichkey_derive', 1)
+          ? SharedPrefix(node.below) : ''
+        node.desc = empty(derived)
+          ? printf('+%d keys', node.count) : '+' .. derived
       endif
     else
       var description = Registered(mode, full)

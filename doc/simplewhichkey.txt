@@ -222,6 +222,28 @@ Draw a border around the panel.  Default 1.
                                              *g:simplewhichkey_show_builtins*
 List Vim's own commands under <C-w>, g, z, [ and ].  Default 1.
 
+                                                    *g:simplewhichkey_derive*
+Work harder at describing a mapping you have not named.  Default 1.  Two
+things change when it is on:
+
+    - a mapping whose right hand side is one of Vim's own prefixed commands
+      takes that command's name from the built-in tables, so a mapping of
+      "<leader>w=" to "<C-w>=" reads as "equalize-sizes" rather than as
+      "<C-W>=".  The lookup follows the mode, so an |:omap| onto "iw" reads
+      as "inner-word".
+    - a group nobody named is named after its children when they agree.  Three
+      mappings to :SimpleGitStatus, :SimpleGitDiff and :SimpleGitLog make the
+      group "+SimpleGit" instead of "+3 keys".
+
+The second rule is deliberately hard to satisfy: the shared beginning has to
+end on a word boundary, be at least three characters long, and cover at least
+half of the shortest description under the key.  A group is named after what
+its keys are about, not after a word they happen to start with -- "echo" in
+front of two different :echo commands names nothing, so that group is still
+counted.
+
+Set to 0 for the plain right hand side and "+N keys" everywhere.
+
                                              *g:simplewhichkey_hide_aliases*
 Hide a built-in Ctrl variant when a plain key with the same meaning is already
 listed, for example <C-w><C-v> next to <C-w>v.  Default 1.
@@ -271,6 +293,18 @@ g:which_key_map can be reused unchanged: >
     call simplewhichkey#Register('<leader>', 'g:which_key_map', 'n')
 <
 Both accept a mode as the last argument, "n" by default.
+
+Describe() takes one more: with {buffer} true the names live on the current
+buffer instead of globally, which is what an |ftplugin| wants -- the same key
+means something else in another filetype, and one global registry cannot say
+so. >
+    call simplewhichkey#Describe({'<leader>r': 'cargo run'}, 'n', v:true)
+<
+Buffer names win over global ones for that buffer, and die with it.
+|simplewhichkey#Forget()| drops the global registry only.
+
+Descriptions you never write are derived from the mapping itself; see
+|g:simplewhichkey_derive| for how hard the plugin tries.
 
 ==============================================================================
 7. COMMANDS                                          *simplewhichkey-commands*
@@ -366,7 +400,8 @@ simplewhichkey#Keys({mode}, {prefix})                  *simplewhichkey#Keys()*
         {desc, group, source}.  The quickest way to check a configuration: >
             :echo simplewhichkey#Keys('n', '<C-w>')
 <
-simplewhichkey#Describe({dict} [, {mode}])         *simplewhichkey#Describe()*
+simplewhichkey#Describe({dict} [, {mode}] [, {buffer}])
+                                                   *simplewhichkey#Describe()*
 simplewhichkey#Register({prefix}, {spec} [, {mode}])
                                                    *simplewhichkey#Register()*
 simplewhichkey#Forget()                              *simplewhichkey#Forget()*

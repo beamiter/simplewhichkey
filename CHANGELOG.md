@@ -56,6 +56,24 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- Derived descriptions try harder, so fewer of them need writing by hand. A
+  mapping whose right hand side is one of Vim's own prefixed commands now takes
+  that command's name — `<leader>w=` mapped to `<C-w>=` reads as
+  `equalize-sizes`, an `omap` onto `iw` as `inner-word` — and a group nobody
+  named is named after its children when they agree, so three mappings to
+  `:SimpleGitStatus`, `:SimpleGitDiff` and `:SimpleGitLog` make `+SimpleGit`
+  instead of `+3 keys`. The group rule is deliberately hard to satisfy: the
+  shared beginning must end on a word boundary and cover at least half of the
+  shortest description under the key, because a group should be named after
+  what its keys are about and not after a word they happen to start with. Both
+  are behind the new `g:simplewhichkey_derive` (default 1).
+
+- `simplewhichkey#Describe()` takes a third argument: with it true the names
+  live on the current buffer instead of globally, which is what an ftplugin
+  wants — the same key means something else in another filetype, and one
+  global registry cannot say so. Buffer names win for that buffer and die with
+  it; `Forget()` drops the global registry only.
+
 - New `:SimpleWhichKeyList [mode]`, backed by `simplewhichkey#Tree()`. The
   panel answers one level at a time — right while typing, wrong while
   configuring, because a popup cannot be searched. The listing renders the

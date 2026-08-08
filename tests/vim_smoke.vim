@@ -362,6 +362,71 @@ simplewhichkey#Describe({'<leader>f': '+finder', '<leader>ff': 'files'})
 leader = simplewhichkey#Keys('n', '<leader>')
 assert_equal('+finder', leader.f.desc)
 assert_equal('files', simplewhichkey#Keys('n', '<leader>f').f.desc)
+simplewhichkey#Forget()
+
+# ---------------------------------------------------------------- derived ---
+
+# A mapping onto one of Vim's own prefixed commands already has a name in the
+# built-in tables, and that name beats repeating its keys.
+nnoremap <silent> <leader>w= <C-w>=
+nnoremap <silent> <leader>wv <C-w>v
+assert_equal('equalize-sizes', simplewhichkey#Keys('n', '<leader>w')['='].desc)
+assert_equal('split-vertical', simplewhichkey#Keys('n', '<leader>w').v.desc)
+# The lookup follows the mode, so an omap onto a text object is named as one.
+onoremap gy iw
+assert_equal('inner-word', simplewhichkey#Keys('o', 'g').y.desc)
+ounmap gy
+g:simplewhichkey_derive = 0
+assert_equal('<C-w>=', simplewhichkey#Keys('n', '<leader>w')['='].desc,
+  'turning derivation off must restore the plain right hand side')
+g:simplewhichkey_derive = 1
+nunmap <leader>w=
+nunmap <leader>wv
+
+# An unnamed group says how much is behind the key and nothing about what.
+# When every mapping under it is named after the same thing, that shared
+# beginning is the name a user would have written by hand.
+nnoremap <silent> <leader>gs <Cmd>SimpleGitStatus<CR>
+nnoremap <silent> <leader>gd <Cmd>SimpleGitDiff<CR>
+nnoremap <silent> <leader>gl <Cmd>SimpleGitLog<CR>
+assert_equal('+SimpleGit', simplewhichkey#Keys('n', '<leader>').g.desc)
+g:simplewhichkey_derive = 0
+assert_equal('+3 keys', simplewhichkey#Keys('n', '<leader>').g.desc)
+g:simplewhichkey_derive = 1
+# A registered name still wins over anything derived.
+simplewhichkey#Describe({'<leader>g': '+git'})
+assert_equal('+git', simplewhichkey#Keys('n', '<leader>').g.desc)
+simplewhichkey#Forget()
+# A shared beginning that does not dominate its children is not a subject:
+# 'echo' in front of two different :echo commands names nothing.
+assert_equal('+2 keys', simplewhichkey#Keys('n', '<leader>').f.desc)
+# Neither is a half word: the cut lands on a word boundary or nowhere.
+nunmap <leader>gl
+nnoremap <silent> <leader>gl <Cmd>SimpleGitStash<CR>
+assert_equal('+SimpleGit', simplewhichkey#Keys('n', '<leader>').g.desc)
+nunmap <leader>gs
+nunmap <leader>gd
+nunmap <leader>gl
+
+# ------------------------------------------------------- buffer-local names -
+
+# The same key means something else in another filetype, and a global registry
+# cannot say so.
+simplewhichkey#Describe({'<leader>e': 'global name'})
+assert_equal('global name', simplewhichkey#Keys('n', '<leader>').e.desc)
+simplewhichkey#Describe({'<leader>e': 'this buffer only', '<leader>f': '+here'},
+  'n', true)
+assert_equal('this buffer only', simplewhichkey#Keys('n', '<leader>').e.desc)
+assert_equal('+here', simplewhichkey#Keys('n', '<leader>').f.desc)
+new
+assert_equal('global name', simplewhichkey#Keys('n', '<leader>').e.desc,
+  'a buffer-local name escaped its buffer')
+bwipe!
+# Forget() drops the global registry; the buffer keeps its own.
+simplewhichkey#Forget()
+assert_equal('this buffer only', simplewhichkey#Keys('n', '<leader>').e.desc)
+unlet b:simplewhichkey_descriptions
+unlet b:simplewhichkey_groups
 
 # ------------------------------------------------------------------ delay ---
 
