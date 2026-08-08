@@ -184,6 +184,11 @@ List Vim's own commands under <C-w>, g, z, [ and ].  Default 1.
 Hide a built-in Ctrl variant when a plain key with the same meaning is already
 listed, for example <C-w><C-v> next to <C-w>v.  Default 1.
 
+Which two keys are the same command is read from Vim's own tables, so renaming
+<C-w>v with |simplewhichkey#Describe()| does not bring <C-w><C-v> back.
+Describing the Ctrl form itself does: a description for "<C-w><C-v>" says that
+key is wanted, and it is listed under that name.
+
                                                     *g:simplewhichkey_ignore*
 Key sequences to leave out of the panel.  They keep working; they are only
 hidden.  Mappings, Vim's built-in commands, registers, marks and group

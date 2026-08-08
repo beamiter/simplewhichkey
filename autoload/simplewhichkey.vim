@@ -368,7 +368,7 @@ def Level(mode: string, sequence: string): dict<any>
   # Before the overlay: whether two keys are the same command is a fact about
   # Vim's tables, and the overlay is about to replace the text that says so.
   if Flag('simplewhichkey_hide_aliases', 1)
-    DropAliases(level)
+    DropAliases(level, mode, sequence)
   endif
 
   for [key, node] in items(level)
@@ -399,7 +399,12 @@ enddef
 # <C-w>v renamed only the plain node and every one of the ten window pairs
 # stopped looking like a duplicate -- naming your window commands used to fill
 # the panel with the phantoms this option exists to remove.
-def DropAliases(level: dict<any>)
+#
+# Running first has its own trap, so the registry is still consulted here, for
+# one question only: naming the Ctrl form itself.  Describing '<C-w><C-v>' says
+# that key is wanted, and dropping it anyway would accept the registration and
+# then throw it away with no diagnostic at all.
+def DropAliases(level: dict<any>, mode: string, sequence: string)
   var described: dict<bool> = {}
   for [key, node] in items(level)
     if node.source ==# 'builtin' && node.label !~# '^<C-'
@@ -407,9 +412,15 @@ def DropAliases(level: dict<any>)
     endif
   endfor
   for [key, node] in items(level)
-    if node.source ==# 'builtin' && node.label =~# '^<C-' && get(described, node.desc, false)
-      remove(level, key)
+    if node.source !=# 'builtin' || node.label !~# '^<C-'
+          || !get(described, node.desc, false)
+      continue
     endif
+    var full = sequence .. key
+    if !empty(Registered(mode, full)) || !empty(RegisteredGroup(mode, full))
+      continue
+    endif
+    remove(level, key)
   endfor
 enddef
 

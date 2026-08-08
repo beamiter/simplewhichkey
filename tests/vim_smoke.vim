@@ -267,6 +267,18 @@ assert_equal('vertical split', window.v.desc)
 assert_false(has_key(window, '<C-V>'),
   'a described window command resurrected its Ctrl alias')
 simplewhichkey#Forget()
+# Naming the Ctrl form itself is the opposite request: it says this key is
+# wanted.  Accepting the description and then dropping the node with it would
+# make a deliberate registration disappear without a word.
+simplewhichkey#Describe({'<C-w><C-v>': 'my own ctrl-v split'})
+window = simplewhichkey#Keys('n', '<C-w>')
+assert_true(has_key(window, '<C-V>'),
+  'a description registered for the alias itself was discarded with the node')
+assert_equal('my own ctrl-v split', window['<C-V>'].desc)
+assert_true(has_key(window, 'v'), 'the plain key must survive alongside it')
+simplewhichkey#Forget()
+assert_false(has_key(simplewhichkey#Keys('n', '<C-w>'), '<C-V>'),
+  'forgetting the description must hide the alias again')
 
 var visual = simplewhichkey#Keys('x', '<leader>')
 assert_equal(['f'], keys(visual))

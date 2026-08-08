@@ -34,7 +34,10 @@ All notable changes to SimpleWhichKey are documented here.
   had replaced it, so naming a single window command (`<C-w>v`) brought its
   Ctrl variant back, and naming all of them filled the panel with the ten
   phantom duplicates the option exists to remove. It now runs on Vim's own
-  table wording, before the overlay.
+  table wording, before the overlay — but a description registered for the
+  Ctrl form itself (`<C-w><C-v>`) still keeps that key listed. Running first
+  had made such a registration disappear along with its node, accepted and
+  then thrown away with no diagnostic.
 
 - `:SimpleWhichKeyOperator` no longer replays the chosen sequence into Normal
   mode. Nothing is pending behind a command line, so an operator-pending
