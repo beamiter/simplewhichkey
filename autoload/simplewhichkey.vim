@@ -889,6 +889,115 @@ export def Show(argument: string, mode: string = 'n')
 enddef
 
 # ---------------------------------------------------------------------------
+# Reporting
+# ---------------------------------------------------------------------------
+
+# Every distinct user mapping in a mode, raw, with the plugin's own hooks left
+# out.  Both reports below start from this one sweep.
+def UserMappings(mode: string): list<string>
+  var seen: dict<bool> = {}
+  for entry in maplist()
+    if get(entry, 'abbr', 0) || !ModeMatches(get(entry, 'mode', ''), mode)
+      continue
+    endif
+    if get(entry, 'rhs', '') =~# HOOK_MARKER
+      continue
+    endif
+    for raw in [get(entry, 'lhsraw', ''), get(entry, 'lhsrawalt', '')]
+      if !empty(raw)
+        seen[raw] = true
+      endif
+    endfor
+  endfor
+  return sort(keys(seen))
+enddef
+
+# Pairs where one mapping continues another.  Vim cannot dispatch the shorter
+# one until 'timeoutlen' has passed, which is the usual answer to "why does
+# this key feel slow" -- and the panel is built on exactly that pause, so the
+# plugin already knows which keys pay it.
+export def Conflicts(mode: string = 'n'): list<dict<string>>
+  var raws = UserMappings(mode)
+  var out: list<dict<string>> = []
+  # Sorting puts every continuation of a sequence directly after it, so a
+  # forward scan that stops at the first non-continuation sees them all
+  # without an all-pairs comparison.
+  for index in range(len(raws))
+    for follower in range(index + 1, len(raws) - 1)
+      if !simplewhichkey#keys#StartsWith(raws[follower], raws[index])
+        break
+      endif
+      add(out, {
+        short: simplewhichkey#keys#Label(raws[index]),
+        long: simplewhichkey#keys#Label(raws[follower]),
+      })
+    endfor
+  endfor
+  return out
+enddef
+
+# Registered descriptions that name a sequence nothing provides.  A description
+# for a key that does not exist is silently ignored everywhere else, so a typo
+# in Describe() has no other symptom than the name never appearing.
+export def Orphans(mode: string = 'n'): list<string>
+  var known = UserMappings(mode) + keys(simplewhichkey#builtin#Table(mode))
+  var out: list<string> = []
+  for registry in [get(descriptions, mode, {}), get(group_names, mode, {})]
+    for sequence in keys(registry)
+      var covered = false
+      for raw in known
+        # A group name describes a prefix rather than a sequence of its own, so
+        # anything continuing it counts as coverage.
+        if raw ==# sequence || simplewhichkey#keys#StartsWith(raw, sequence)
+          covered = true
+          break
+        endif
+      endfor
+      if !covered
+        add(out, simplewhichkey#keys#Label(sequence))
+      endif
+    endfor
+  endfor
+  return sort(out)
+enddef
+
+# :SimpleWhichKeyConflicts
+export def Report()
+  var lines = ['[SimpleWhichKey] conflicts']
+  if !&timeout
+    add(lines, "  [WARN] 'notimeout' is set: Vim never dispatches an ambiguous")
+    add(lines, '         prefix on its own, so a prefix that other mappings')
+    add(lines, '         extend can never reach the panel')
+  elseif &timeoutlen > 1000
+    add(lines, printf('  [WARN] timeoutlen is %d ms: every prefix that other',
+      &timeoutlen))
+    add(lines, '         mappings extend waits that long before its panel opens')
+  endif
+  for mode in sort(keys(hooks))
+    add(lines, printf('  mode %s', mode))
+    var conflicts = Conflicts(mode)
+    if empty(conflicts)
+      add(lines, '    no mapping waits for a longer one')
+    endif
+    for pair in conflicts
+      add(lines, printf('    %-16s waits for %s', pair.short, pair.long))
+    endfor
+    for label in Orphans(mode)
+      add(lines, printf('    %-16s described, but nothing is mapped there',
+        label))
+    endfor
+    for lhs in get(hooks, mode, [])
+      if empty(Level(mode, simplewhichkey#keys#Termcodes(lhs)))
+        # Registers and marks come from live state, so "nothing" here can be a
+        # true but momentary answer; say so rather than implying it is broken.
+        add(lines, printf('    %-16s hooked, but lists nothing right now', lhs))
+      endif
+    endfor
+  endfor
+  echo join(lines, "\n")
+enddef
+
+# ---------------------------------------------------------------------------
 # Highlights and health
 # ---------------------------------------------------------------------------
 
@@ -941,6 +1050,19 @@ export def Health()
   endfor
   add(lines, printf('  descriptions   : %d entries, %d groups',
     description_count, group_count))
+  var shadowed = 0
+  var unknown = 0
+  for mode in keys(hooks)
+    shadowed += len(Conflicts(mode))
+    unknown += len(Orphans(mode))
+  endfor
+  add(lines, printf(
+    '  conflicts      : %d mapping(s) waiting for a longer one, '
+    .. '%d description(s) naming nothing (:SimpleWhichKeyConflicts)',
+    shadowed, unknown))
+  if !&timeout
+    add(lines, "  [WARN] 'notimeout' keeps an ambiguous prefix from dispatching")
+  endif
   for [mode, prefixes] in items(hooks)
     add(lines, printf('  mode %s', mode))
     for lhs in prefixes

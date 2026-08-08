@@ -120,6 +120,7 @@ command! SimpleWhichKeyToggle simplewhichkey#Toggle()
 command! SimpleWhichKeyEnable simplewhichkey#Enable()
 command! SimpleWhichKeyDisable simplewhichkey#Disable()
 command! SimpleWhichKeyHealth simplewhichkey#Health()
+command! SimpleWhichKeyConflicts simplewhichkey#Report()
 
 nnoremap <silent> <Plug>(simplewhichkey-toggle) <Cmd>SimpleWhichKeyToggle<CR>
 

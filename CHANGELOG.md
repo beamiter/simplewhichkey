@@ -47,6 +47,14 @@ All notable changes to SimpleWhichKey are documented here.
   keeps its count and `.` repeats the choice; Visual `i`/`a` keep the live
   selection. Normal-mode `i`/`a` are untouched — they start Insert.
 
+- New `:SimpleWhichKeyConflicts`, backed by `simplewhichkey#Conflicts()` and
+  `simplewhichkey#Orphans()`. It reports which of your mappings cannot
+  dispatch until `'timeoutlen'` has passed because a longer mapping continues
+  them, which registered descriptions name a key nothing is mapped to, and
+  which hooked prefixes list nothing — plus warnings for `'notimeout'` and a
+  `'timeoutlen'` above one second. `:SimpleWhichKeyHealth` carries a one line
+  summary of it.
+
 - `g:simplewhichkey_delay` now also accepts a dictionary keyed by prefix
   notation, optionally scoped to a mode (`o:g`), with a `default` entry. A
   prefix that other mappings extend has already cost a full `'timeoutlen'` and

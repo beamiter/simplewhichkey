@@ -256,7 +256,29 @@ Both accept a mode as the last argument, "n" by default.
                                                         *:SimpleWhichKeyHealth*
 :SimpleWhichKeyHealth       Report the state of every hooked prefix: whether
                             the hook is in place or taken by another mapping,
-                            and how many mappings and built-ins it lists.
+                            how many mappings and built-ins it lists, and the
+                            delay it resolves to.  Ends with a one line
+                            summary of |:SimpleWhichKeyConflicts|.
+
+                                                     *:SimpleWhichKeyConflicts*
+:SimpleWhichKeyConflicts    Three questions the plugin can answer because it
+                            already walks the whole mapping tree:
+
+                            - which mappings cannot dispatch until
+                              'timeoutlen' has passed, because a longer
+                              mapping continues them.  This is the usual
+                              answer to "why does this key feel slow".
+                            - which registered descriptions name a sequence
+                              nothing is mapped to -- how a typo in
+                              |simplewhichkey#Describe()| shows, since a
+                              description for a key that does not exist is
+                              silently ignored everywhere else.
+                            - which hooked prefixes list nothing right now.
+
+                            It also warns about 'notimeout', with which Vim
+                            never dispatches an ambiguous prefix on its own so
+                            the panel can never open, and about a 'timeoutlen'
+                            above one second.
 
 ==============================================================================
 8. FUNCTIONS                                        *simplewhichkey-functions*
@@ -275,6 +297,18 @@ simplewhichkey#Forget()                              *simplewhichkey#Forget()*
 
 simplewhichkey#Start({prefix} [, {mode}])             *simplewhichkey#Start()*
         Open the panel for {prefix}.  This is what the hooks call.
+
+simplewhichkey#Conflicts([{mode}])                *simplewhichkey#Conflicts()*
+        Every pair {short, long} of your mappings where the long one continues
+        the short one, as |keytrans()| labels.  The short one waits a full
+        'timeoutlen' before Vim can dispatch it.
+
+simplewhichkey#Orphans([{mode}])                    *simplewhichkey#Orphans()*
+        The labels of registered descriptions that name a sequence nothing is
+        mapped to and no built-in provides.
+
+        Both back |:SimpleWhichKeyConflicts| and return data, so a
+        configuration can be checked from a script.
 
 ==============================================================================
 9. HIGHLIGHTS                                      *simplewhichkey-highlights*

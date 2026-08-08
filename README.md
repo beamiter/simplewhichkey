@@ -179,10 +179,19 @@ Both take a mode as their last argument (`'n'` by default, `'x'` for visual).
 | `:SimpleWhichKeyOperator [prefix]` | browse operator mappings/motions; defaults to `g` |
 | `:SimpleWhichKeyRefresh` | re-take the prefixes, e.g. after changing the leader |
 | `:SimpleWhichKeyToggle` | hints on/off |
-| `:SimpleWhichKeyHealth` | which prefixes are hooked, and what they hold |
+| `:SimpleWhichKeyHealth` | which prefixes are hooked, what they hold, what they wait |
+| `:SimpleWhichKeyConflicts` | which mappings wait for a longer one, and which descriptions name nothing |
 
 `simplewhichkey#Keys('n', '<C-w>')` returns what the panel would list, which is
 the quickest way to check a configuration without pressing anything.
+
+`:SimpleWhichKeyConflicts` answers three questions nothing else in the
+ecosystem answers for Vim, because the plugin already walks the whole mapping
+tree: which of your mappings cannot dispatch until `'timeoutlen'` has passed
+because a longer mapping continues them (the usual reason a key feels slow),
+which descriptions you registered point at keys that do not exist, and which
+hooked prefixes list nothing. `simplewhichkey#Conflicts()` and
+`simplewhichkey#Orphans()` return the same data structurally.
 
 ## Highlight groups
 

@@ -343,6 +343,34 @@ assert_match('g\s\+hooked\s\+\d\+ mapping(s), \d\+ built-in(s), 250 ms',
 g:simplewhichkey_delay = 200
 assert_match('delay\s*: 200 ms', execute('SimpleWhichKeyHealth'))
 
+# ---------------------------------------------------------------- conflicts ---
+
+# A mapping another mapping continues cannot dispatch until 'timeoutlen' has
+# passed. The plugin already walks the whole tree, so it can say which ones.
+nnoremap <leader>x <Cmd>echo 'x'<CR>
+nnoremap <leader>xy <Cmd>echo 'xy'<CR>
+assert_equal([{short: '<Space>x', long: '<Space>xy'}],
+  filter(simplewhichkey#Conflicts('n'), (_, pair) => pair.short ==# '<Space>x'))
+nunmap <leader>xy
+assert_equal([],
+  filter(simplewhichkey#Conflicts('n'), (_, pair) => pair.short ==# '<Space>x'))
+nunmap <leader>x
+
+# A description for a key nothing is mapped to is how a Describe() typo shows:
+# it is silently ignored everywhere else.
+simplewhichkey#Forget()
+simplewhichkey#Describe({'<leader>zzz': 'typo', '<leader>ff': 'real'})
+assert_true(index(simplewhichkey#Orphans('n'), '<Space>zzz') >= 0)
+assert_true(index(simplewhichkey#Orphans('n'), '<Space>ff') < 0)
+# A group name describes a prefix, so anything continuing it is coverage.
+simplewhichkey#Describe({'<leader>f': '+file'})
+assert_true(index(simplewhichkey#Orphans('n'), '<Space>f') < 0)
+simplewhichkey#Forget()
+
+var conflict_report = execute('SimpleWhichKeyConflicts')
+assert_match('mode n', conflict_report)
+assert_match('conflicts', execute('SimpleWhichKeyHealth'))
+
 # ----------------------------------------------------------------- ignore ---
 
 # A hidden key disappears from the panel but keeps working as a mapping.
