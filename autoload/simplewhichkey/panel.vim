@@ -247,7 +247,13 @@ enddef
 
 def Fitting(): bool
   var width = get(g:, 'simplewhichkey_width', 0)
-  return type(width) == v:t_string && width ==# 'fit'
+  if type(width) == v:t_string
+    return width ==# 'fit'
+  endif
+  # A cursor-relative panel that claims the whole screen is just a bar drawn in
+  # a strange place: Vim shifts it back against the left edge and it covers the
+  # text the hint is about.  Fit it unless a width was actually asked for.
+  return width == 0 && get(g:, 'simplewhichkey_position', 'bottom') ==# 'cursor'
 enddef
 
 const BORDER_CHARS = ['─', '│', '─', '│', '╭', '╮', '╯', '╰']
@@ -280,6 +286,29 @@ def Budget(frame: dict<any>): number
   return max([MIN_WIDTH, &columns - frame.width])
 enddef
 
+# The last screen row a panel may occupy: above the command line, and above the
+# statusline when there is one.
+#
+# Ask whether a statusline is really drawn, not whether the option is non-zero:
+# at Vim's default 'laststatus' of 1 the last window has no statusline until the
+# tab page holds a second window, and compensating there left a blank row above
+# the command line.
+def LastRow(): number
+  var statusline = &laststatus >= 2 || (&laststatus == 1 && winnr('$') > 1)
+  return &lines - &cmdheight - (statusline ? 1 : 0)
+enddef
+
+# Which screen row the cursor sits on.
+#
+# Not screenrow(): that reports the *physical* terminal cursor, which a pending
+# message or a timer callback can leave anywhere on the screen -- it was
+# observed returning 10000 from a timer.  The window's own idea of where its
+# cursor is cannot drift, and it is what Vim's "cursor" popup placement uses
+# for the same reason.
+def CursorRow(): number
+  return win_screenpos(0)[0] + winline() - 1
+enddef
+
 def PopupOptions(title: string, height: number, frame: dict<any>, width: number): dict<any>
   var position = get(g:, 'simplewhichkey_position', 'bottom')
   var options = {
@@ -305,19 +334,31 @@ def PopupOptions(title: string, height: number, frame: dict<any>, width: number)
     options.line = 1
   elseif position ==# 'center'
     options.line = max([1, (&lines - outer) / 2])
+  elseif position ==# 'cursor'
+    # Next to the work rather than at the edge of the screen.  An insert-mode
+    # hint for <C-r> or <C-x> is about the word being typed, and on a 60 line
+    # terminal a bar along the bottom is nowhere near it.
+    #
+    # Below the cursor by default, above it when the panel would not fit
+    # below -- but only when it does fit above, because Vim clamps a popup
+    # back onto the screen and a clamped panel above the cursor covers the
+    # very line the hint belongs to.
+    options.col = 'cursor'
+    var row = CursorRow()
+    var below = LastRow() - row
+    if outer <= below || row - 1 < outer
+      options.line = 'cursor+1'
+    else
+      options.pos = 'botleft'
+      options.line = 'cursor-1'
+    endif
   else
     options.pos = 'botleft'
     # Sit above the command line, and above the statusline when there is one:
     # the panel is transient and the statusline is where the file name, the
     # position and every other plugin's output lives.  Both branches of this
     # ternary used to be 0, so the compensation never happened.
-    #
-    # Ask whether a statusline is really drawn, not whether the option is
-    # non-zero: at Vim's default 'laststatus' of 1 the last window has no
-    # statusline until the tab page holds a second window, and compensating
-    # there left a blank row between the panel and the command line.
-    var statusline = &laststatus >= 2 || (&laststatus == 1 && winnr('$') > 1)
-    options.line = &lines - &cmdheight - (statusline ? 1 : 0)
+    options.line = LastRow()
   endif
   return options
 enddef

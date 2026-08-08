@@ -63,6 +63,14 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- `g:simplewhichkey_position` accepts `'cursor'`: the panel opens under the
+  cursor, and above it when there is no room below. That is where an
+  insert-mode hint for `<C-r>` or `<C-x>` belongs — on a tall terminal a bar
+  along the bottom edge is nowhere near the word being typed. A cursor-relative
+  panel fits itself to its content unless a width is asked for, since a
+  full-width popup at the cursor is pushed back to the left edge and buries the
+  line it is hinting.
+
 - `g:simplewhichkey_width` decides how wide the panel is: `0` (the default)
   keeps the full-width bar, a number pins the text area to that many columns,
   and `'fit'` shrinks the popup to the widest row it drew — never narrower than

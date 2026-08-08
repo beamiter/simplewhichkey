@@ -121,7 +121,8 @@ g:simplewhichkey_max_desc_width = ClampNumber(get(g:, 'simplewhichkey_max_desc_w
 g:simplewhichkey_list_depth = ClampNumber(get(g:, 'simplewhichkey_list_depth', 4), 4, 1, 16)
 g:simplewhichkey_width = Width(get(g:, 'simplewhichkey_width', 0), 0)
 g:simplewhichkey_position = Choice(
-  get(g:, 'simplewhichkey_position', 'bottom'), 'bottom', ['bottom', 'top', 'center'])
+  get(g:, 'simplewhichkey_position', 'bottom'),
+  'bottom', ['bottom', 'top', 'center', 'cursor'])
 g:simplewhichkey_sort = Choice(get(g:, 'simplewhichkey_sort', 'key'), 'key', ['key', 'group'])
 g:simplewhichkey_separator = Text(get(g:, 'simplewhichkey_separator', ' → '), ' → ')
 g:simplewhichkey_border = Flag(get(g:, 'simplewhichkey_border', 1), 1)

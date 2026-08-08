@@ -861,6 +861,53 @@ var steps = [
     g:hit = ''
   },
 
+  # --- cursor-relative placement ------------------------------------------
+  # A cursor row only exists on a screen there really is, so this belongs in
+  # the pty run: under -es the window never scrolls and the flip above the
+  # cursor could not be observed at all.
+  () => {
+    g:simplewhichkey_position = 'cursor'
+    PutLines(mapnew(range(1, 200), (_, nr) => 'line-' .. nr))
+    normal! gg
+    cursor(3, 1)
+    redraw
+    var row = win_screenpos(0)[0] + winline() - 1
+    assert_equal(3, row, 'the pty window did not follow the cursor')
+    simplewhichkey#panel#Show('Cursor', [
+      {label: 'a', desc: 'entry', group: false},
+      {label: 'b', desc: 'entry', group: false},
+    ], "n\x01cursor-below")
+    var below = popup_getpos(popup_list()[-1])
+    assert_equal(row + 1, below.line, 'the panel did not open under the cursor')
+    assert_equal(win_screenpos(0)[1] + wincol() - 1, below.col,
+      'the panel did not open at the cursor column')
+    # Cursor placement fits by default: a full-width popup at the cursor is
+    # shifted back to the left edge and buries the line it is hinting.
+    assert_true(below.width < &columns,
+      printf('a cursor panel claimed the screen: %d of %d columns',
+        below.width, &columns))
+    simplewhichkey#panel#Close()
+  },
+  () => {
+    # Against the bottom of the window there is no room below, so the panel
+    # flips above the cursor and still leaves the cursor line visible.
+    normal! G
+    redraw
+    var row = win_screenpos(0)[0] + winline() - 1
+    assert_true(row > 20, 'the cursor did not reach the bottom of the screen')
+    simplewhichkey#panel#Show('Cursor', [
+      {label: 'a', desc: 'entry', group: false},
+      {label: 'b', desc: 'entry', group: false},
+    ], "n\x01cursor-above")
+    var above = popup_getpos(popup_list()[-1])
+    assert_equal(row - 1, above.line + above.height - 1,
+      'the panel did not flip above the cursor')
+    assert_true(above.line >= 1, 'the flipped panel ran off the top')
+    simplewhichkey#panel#Close()
+    g:simplewhichkey_position = 'bottom'
+    PutLines(['one', 'two', 'three', 'four'])
+  },
+
   # --- disabled means out of the way --------------------------------------
   () => {
     simplewhichkey#Disable()
