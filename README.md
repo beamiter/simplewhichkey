@@ -154,6 +154,7 @@ let g:simplewhichkey_prefixes = {
 
 let g:simplewhichkey_delay = 200        " ms before the panel opens
 let g:simplewhichkey_position = 'bottom' " bottom | top | center
+let g:simplewhichkey_width = 0          " 0 = full width | columns | 'fit'
 let g:simplewhichkey_separator = ' → '
 let g:simplewhichkey_max_height = 0     " 0 = half the screen
 let g:simplewhichkey_max_desc_width = 30

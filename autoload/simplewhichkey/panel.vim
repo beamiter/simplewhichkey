@@ -223,7 +223,31 @@ def Layout(entries: list<dict<any>>, available: number, requested_page: number):
       add(lines, {text: text, props: filter(props, (_, p) => p.length > 0)})
     endif
   endfor
-  return {lines: lines, page: page, pages: pages}
+  # The widest row actually produced.  Cells are never stretched past their
+  # natural size, so this is usually well short of the budget -- which is what
+  # a fit-to-content panel is asking for.
+  var content = 0
+  for line in lines
+    content = max([content, strdisplaywidth(line.text)])
+  endfor
+  return {lines: lines, page: page, pages: pages, width: content}
+enddef
+
+# How wide the text area may be.  0 (the default) keeps the full-width bar the
+# panel has always been; a positive number pins it; "fit" lets Show() shrink it
+# to the widest row.  A pinned width is still clamped to what the screen has,
+# because a popup wider than the terminal is a popup with a missing edge.
+def RequestedWidth(budget: number): number
+  var width = get(g:, 'simplewhichkey_width', 0)
+  if type(width) == v:t_number && width > 0
+    return min([budget, max([MIN_WIDTH, width])])
+  endif
+  return budget
+enddef
+
+def Fitting(): bool
+  var width = get(g:, 'simplewhichkey_width', 0)
+  return type(width) == v:t_string && width ==# 'fit'
 enddef
 
 const BORDER_CHARS = ['─', '│', '─', '│', '╭', '╮', '╯', '╰']
@@ -250,8 +274,10 @@ enddef
 # The widest text a panel may hold, in display columns.  The floor keeps a
 # pathologically narrow terminal from producing a zero-column grid; the panel
 # is then clipped by Vim rather than by arithmetic that divides by nothing.
+const MIN_WIDTH = 20
+
 def Budget(frame: dict<any>): number
-  return max([20, &columns - frame.width])
+  return max([MIN_WIDTH, &columns - frame.width])
 enddef
 
 def PopupOptions(title: string, height: number, frame: dict<any>, width: number): dict<any>
@@ -314,8 +340,8 @@ export def Show(title: string, entries: list<dict<any>>, level_id: string = '')
     current_page = get(pages_by_level, identity, 0)
   endif
   var frame = Frame()
-  var budget = Budget(frame)
-  var layout = Layout(SortEntries(entries), budget, current_page)
+  var allowed = RequestedWidth(Budget(frame))
+  var layout = Layout(SortEntries(entries), allowed, current_page)
   current_page = layout.page
   current_pages = layout.pages
   pages_by_level[identity] = current_page
@@ -323,7 +349,13 @@ export def Show(title: string, entries: list<dict<any>>, level_id: string = '')
   if current_pages > 1
     display_title ..= printf(' [%d/%d PgUp/PgDn]', current_page + 1, current_pages)
   endif
-  var options = PopupOptions(display_title, len(layout.lines), frame, budget)
+  # A fitted panel still has to hold its own title: Vim truncates a title that
+  # is wider than the popup, and the title is where the page counter lives.
+  var width = allowed
+  if Fitting()
+    width = min([allowed, max([layout.width, strdisplaywidth(display_title) + 2])])
+  endif
+  var options = PopupOptions(display_title, len(layout.lines), frame, width)
   if popup_id > 0 && !empty(popup_getoptions(popup_id))
     popup_settext(popup_id, layout.lines)
     popup_setoptions(popup_id, options)

@@ -70,6 +70,16 @@ def Delay(value: any, fallback: number): any
   return out
 enddef
 
+# Panel width in text columns: 0 keeps the full-width bar, a positive number
+# pins it, "fit" shrinks it to the widest row.  Anything else falls back to 0
+# rather than reaching the popup, where a bad width is a missing panel.
+def Width(value: any, fallback: number): any
+  if type(value) == v:t_string && value ==# 'fit'
+    return 'fit'
+  endif
+  return ClampNumber(value, fallback, 0, 500)
+enddef
+
 def Prefixes(value: any, fallback: dict<list<string>>): dict<any>
   if type(value) != v:t_dict
     return fallback
@@ -109,6 +119,7 @@ g:simplewhichkey_delay = Delay(get(g:, 'simplewhichkey_delay', 200), 200)
 g:simplewhichkey_max_height = ClampNumber(get(g:, 'simplewhichkey_max_height', 0), 0, 0, 100)
 g:simplewhichkey_max_desc_width = ClampNumber(get(g:, 'simplewhichkey_max_desc_width', 30), 30, 8, 120)
 g:simplewhichkey_list_depth = ClampNumber(get(g:, 'simplewhichkey_list_depth', 4), 4, 1, 16)
+g:simplewhichkey_width = Width(get(g:, 'simplewhichkey_width', 0), 0)
 g:simplewhichkey_position = Choice(
   get(g:, 'simplewhichkey_position', 'bottom'), 'bottom', ['bottom', 'top', 'center'])
 g:simplewhichkey_sort = Choice(get(g:, 'simplewhichkey_sort', 'key'), 'key', ['key', 'group'])

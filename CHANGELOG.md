@@ -63,6 +63,12 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- `g:simplewhichkey_width` decides how wide the panel is: `0` (the default)
+  keeps the full-width bar, a number pins the text area to that many columns,
+  and `'fit'` shrinks the popup to the widest row it drew — never narrower than
+  its own title, which is where the page counter lives. A pinned or fitted
+  width is still clamped to the terminal.
+
 - One read of the mapping table per operation instead of one per level. What a
   panel costs is how many times `maplist()` is swept times how many mappings
   are in it, and the tree walk swept once per group: listing a 676-mapping

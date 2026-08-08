@@ -198,6 +198,20 @@ needs a real pause.
                                                   *g:simplewhichkey_position*
 "bottom" (default), "top" or "center".
 
+                                                     *g:simplewhichkey_width*
+How wide the panel is, counted in the columns its text gets.  The border and
+the padding are drawn around that, and the whole frame is always kept inside
+the terminal.
+
+    0 (default)   the full width of the screen, the bar the panel has always
+                  been
+    a number      that many columns, clamped to what the screen has
+    "fit"         only as wide as the widest row it drew, and never narrower
+                  than its own title, which carries the page counter
+
+A fitted panel leaves the rest of the buffer visible, at the cost of a panel
+whose width changes from prefix to prefix.
+
                                                  *g:simplewhichkey_separator*
 Text between key and description.  Default " -> " (an arrow).
 

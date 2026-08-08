@@ -124,6 +124,44 @@ endfor
 g:simplewhichkey_border = 1
 simplewhichkey#panel#Close()
 
+# The full-width bar stays the default (asserted just above), but a panel can
+# be fitted to what it drew or pinned to a width.
+const NARROW = [
+  {label: 'a', desc: 'one', group: false},
+  {label: 'b', desc: 'two', group: false},
+]
+g:simplewhichkey_width = 'fit'
+simplewhichkey#panel#Show('Fit', NARROW, "n\x01fit")
+var fit_popup = popup_list()[-1]
+var fitted = popup_getpos(fit_popup)
+var fitted_widest = max(mapnew(
+  getbufline(winbufnr(fit_popup), 1, '$'), (_, line) => strdisplaywidth(line)))
+assert_true(fitted.width < &columns,
+  printf('a fitted panel still claimed the screen: %d of %d columns',
+    fitted.width, &columns))
+assert_true(fitted.core_width >= fitted_widest,
+  printf('a fitted panel is narrower than its own rows: %d < %d',
+    fitted.core_width, fitted_widest))
+# It never shrinks below its title, which is where the page counter lives.
+assert_true(fitted.core_width >= strdisplaywidth(' Fit ') + 2,
+  printf('a fitted panel cut its own title: %d columns', fitted.core_width))
+assert_true(fitted.core_width <= max([fitted_widest, strdisplaywidth(' Fit ') + 2]),
+  printf('a fitted panel kept slack: %d columns for %d of text',
+    fitted.core_width, fitted_widest))
+
+g:simplewhichkey_width = 30
+simplewhichkey#panel#Show('Pinned', NARROW, "n\x01pinned")
+assert_equal(30, popup_getpos(popup_list()[-1]).core_width,
+  'a pinned width is not the width the panel got')
+# A width wider than the screen is clamped rather than clipped.
+g:simplewhichkey_width = 500
+simplewhichkey#panel#Show('Pinned', NARROW, "n\x01pinned-wide")
+var clamped = popup_getpos(popup_list()[-1])
+assert_equal(&columns, clamped.col + clamped.width - 1,
+  'an oversized width escaped the screen')
+g:simplewhichkey_width = 0
+simplewhichkey#panel#Close()
+
 # The bottom panel stops above the statusline instead of covering it.
 var saved_laststatus = &laststatus
 &laststatus = 2
