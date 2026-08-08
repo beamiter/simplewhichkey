@@ -409,6 +409,10 @@ var filtered = simplewhichkey#Keys('n', '<leader>')
 assert_false(has_key(filtered, 'e'))
 assert_true(has_key(filtered, 'f'),
   'an anchored regexp matched a leaf, so the group must survive')
+# An unusable regexp is a configuration mistake, not a broken keystroke.
+g:simplewhichkey_ignore = ['/\(/']
+assert_equal(['e', 'f'], sort(keys(simplewhichkey#Keys('n', '<leader>'))),
+  'a bad ignore regexp escaped into the panel loop')
 g:simplewhichkey_ignore = []
 
 if !empty(v:errors)

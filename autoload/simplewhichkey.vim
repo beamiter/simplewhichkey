@@ -275,9 +275,15 @@ def Ignored(sequence: string): bool
       if empty(label)
         label = simplewhichkey#keys#Label(sequence)
       endif
-      if label =~# strpart(pattern, 1, strlen(pattern) - 2)
-        return true
-      endif
+      try
+        if label =~# strpart(pattern, 1, strlen(pattern) - 2)
+          return true
+        endif
+      catch
+        # This runs inside the panel loop, once per candidate. An unusable
+        # regexp is a configuration mistake and must not take a keystroke down
+        # with it, so it simply matches nothing.
+      endtry
       continue
     endif
     if pattern[-1 : ] ==# '*'
