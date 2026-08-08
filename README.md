@@ -157,6 +157,7 @@ let g:simplewhichkey_position = 'bottom' " bottom | top | center
 let g:simplewhichkey_separator = ' → '
 let g:simplewhichkey_max_height = 0     " 0 = half the screen
 let g:simplewhichkey_max_desc_width = 30
+let g:simplewhichkey_list_depth = 4     " levels :SimpleWhichKeyList descends
 let g:simplewhichkey_sort = 'key'       " key | group (groups first)
 let g:simplewhichkey_border = 1
 let g:simplewhichkey_show_builtins = 1  " Vim's own <C-w>, g, z, [, ] commands
@@ -199,6 +200,7 @@ Both take a mode as their last argument (`'n'` by default, `'x'` for visual).
 | `:SimpleWhichKey [prefix]` | open the panel for a prefix, default the leader |
 | `:SimpleWhichKeyVisual [prefix]` | the same for visual mode mappings; browses when no selection is live |
 | `:SimpleWhichKeyOperator [prefix]` | browse operator mappings/motions; defaults to `g` |
+| `:SimpleWhichKeyList [mode]` | the whole key tree in a scratch buffer you can search; `!` fills the quickfix list |
 | `:SimpleWhichKeyRefresh` | re-take the prefixes, e.g. after changing the leader |
 | `:SimpleWhichKeyToggle` | hints on/off |
 | `:SimpleWhichKeyHealth` | which prefixes are hooked, what they hold, what they wait |
@@ -206,6 +208,18 @@ Both take a mode as their last argument (`'n'` by default, `'x'` for visual).
 
 `simplewhichkey#Keys('n', '<C-w>')` returns what the panel would list, which is
 the quickest way to check a configuration without pressing anything.
+`simplewhichkey#Tree('n')` returns the whole tree the same way — the panel
+answers one level at a time, which is right while typing and wrong while
+configuring, because a popup cannot be searched:
+
+```
+<Space>       +6 keys           prefix
+<Space>f      +file             map
+<Space>ff     find files        map
+<Space>fr     recent files      map
+<C-W>         +38 keys          prefix
+<C-W>v        split-vertical    builtin
+```
 
 `:SimpleWhichKeyConflicts` answers three questions nothing else in the
 ecosystem answers for Vim, because the plugin already walks the whole mapping

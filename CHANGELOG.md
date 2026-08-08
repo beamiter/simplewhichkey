@@ -56,6 +56,18 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- New `:SimpleWhichKeyList [mode]`, backed by `simplewhichkey#Tree()`. The
+  panel answers one level at a time — right while typing, wrong while
+  configuring, because a popup cannot be searched. The listing renders the
+  whole tree into a scratch buffer with its own `filetype` and syntax, three
+  columns wide: the key sequence, its description, and whether that came from
+  a built-in table, a mapping, the live editor state or a hooked prefix.
+  `:SimpleWhichKeyList!` fills the quickfix list instead, so `:cfilter`
+  composes with it. Every level is ordered exactly as the panel would draw it,
+  `g:simplewhichkey_ignore` applies identically, and the walk is bounded by
+  the new `g:simplewhichkey_list_depth` (default 4) because the tree is not
+  bounded by itself.
+
 - Insert mode and the command line are hinted. `<C-r>` lists every register
   that holds something, with a preview, in both modes — as do its `<C-r>`,
   `<C-o>` and `<C-p>` sub-forms — and Insert-mode `<C-x>` lists the completion

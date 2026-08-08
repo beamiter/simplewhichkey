@@ -108,6 +108,7 @@ g:simplewhichkey_prefixes = Prefixes(get(g:, 'simplewhichkey_prefixes', {}), DEF
 g:simplewhichkey_delay = Delay(get(g:, 'simplewhichkey_delay', 200), 200)
 g:simplewhichkey_max_height = ClampNumber(get(g:, 'simplewhichkey_max_height', 0), 0, 0, 100)
 g:simplewhichkey_max_desc_width = ClampNumber(get(g:, 'simplewhichkey_max_desc_width', 30), 30, 8, 120)
+g:simplewhichkey_list_depth = ClampNumber(get(g:, 'simplewhichkey_list_depth', 4), 4, 1, 16)
 g:simplewhichkey_position = Choice(
   get(g:, 'simplewhichkey_position', 'bottom'), 'bottom', ['bottom', 'top', 'center'])
 g:simplewhichkey_sort = Choice(get(g:, 'simplewhichkey_sort', 'key'), 'key', ['key', 'group'])
@@ -125,6 +126,8 @@ command! SimpleWhichKeyRefresh simplewhichkey#Setup()
 command! SimpleWhichKeyToggle simplewhichkey#Toggle()
 command! SimpleWhichKeyEnable simplewhichkey#Enable()
 command! SimpleWhichKeyDisable simplewhichkey#Disable()
+command! -bang -nargs=? -complete=customlist,simplewhichkey#CompleteMode
+      \ SimpleWhichKeyList simplewhichkey#List(<q-args>, <bang>0)
 command! SimpleWhichKeyHealth simplewhichkey#Health()
 command! SimpleWhichKeyConflicts simplewhichkey#Report()
 

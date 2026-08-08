@@ -204,6 +204,11 @@ Text between key and description.  Default " -> " (an arrow).
                                                 *g:simplewhichkey_max_height*
 Maximum panel height in lines.  0 (default) means half the screen.
 
+                                                *g:simplewhichkey_list_depth*
+How many levels |:SimpleWhichKeyList| and |simplewhichkey#Tree()| descend.
+Default 4, clamped to 1..16.  The tree is not bounded by itself: a group leads
+to a group leads to a group for as long as a key sequence can grow.
+
                                             *g:simplewhichkey_max_desc_width*
 Longest description before it is shortened.  Default 30.  Descriptions shrink
 further when the panel would otherwise not fit.
@@ -308,6 +313,24 @@ Both accept a mode as the last argument, "n" by default.
                                                       *:SimpleWhichKeyDisable*
 :SimpleWhichKeyToggle       Hints on/off.
 
+                                                          *:SimpleWhichKeyList*
+:SimpleWhichKeyList [mode]  The whole key tree for [mode] ("n" by default;
+                            "x", "o", "i" and "c" are the others), in a
+                            scratch buffer with 'filetype' simplewhichkeylist.
+                            Three columns: the key sequence, its description
+                            and where that description came from -- "builtin",
+                            "map", "dynamic" or "prefix".  The panel shows one
+                            level at a time, which is right while typing and
+                            wrong while configuring: this is the form you can
+                            search with "/".
+
+:SimpleWhichKeyList! [mode] The same rows in the |quickfix| list, so |:cfilter|
+                            and friends compose with it.
+
+                            Depth is bounded by |g:simplewhichkey_list_depth|.
+                            |g:simplewhichkey_ignore| applies here exactly as
+                            it does to the panel.
+
                                                         *:SimpleWhichKeyHealth*
 :SimpleWhichKeyHealth       Report the state of every hooked prefix: whether
                             the hook is in place or taken by another mapping,
@@ -353,6 +376,15 @@ simplewhichkey#Forget()                              *simplewhichkey#Forget()*
 simplewhichkey#Start({prefix} [, {mode}])             *simplewhichkey#Start()*
         Open the panel for {prefix}.  This is what the hooks call.
 
+simplewhichkey#Tree([{mode}] [, {prefix}] [, {depth}])  *simplewhichkey#Tree()*
+        Every sequence reachable under {prefix}, depth first, in the order the
+        panel would draw each level, as a list of
+        {keys, label, desc, group, source}.  With no {prefix}, every hooked
+        prefix of {mode} in turn, each introduced by a row whose "source" is
+        "prefix".  {depth} overrides |g:simplewhichkey_list_depth|.  This is
+        what |:SimpleWhichKeyList| renders: >
+            :echo len(simplewhichkey#Tree('n'))
+<
 simplewhichkey#Conflicts([{mode}])                *simplewhichkey#Conflicts()*
         Every pair {short, long} of your mappings where the long one continues
         the short one, as |keytrans()| labels.  The short one waits a full

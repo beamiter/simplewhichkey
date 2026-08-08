@@ -493,6 +493,69 @@ assert_equal([], sort(keys(simplewhichkey#Keys('n', '<leader>'))),
 nunmap <leader>*
 g:simplewhichkey_ignore = []
 
+# ------------------------------------------------------------------- tree ---
+
+# The panel answers one level at a time, which is the right question while
+# typing and the wrong one while configuring: a popup cannot be searched.
+simplewhichkey#Forget()
+simplewhichkey#Describe({'<leader>f': '+file', '<leader>ff': 'files'})
+var tree = simplewhichkey#Tree('n', '<leader>')
+# Depth first, and every level in the order the panel would draw it, so the
+# two views of one key map never disagree.
+assert_equal(['<Space>e', '<Space>f', '<Space>ff', '<Space>fr'],
+  mapnew(tree, (_, row) => row.keys))
+assert_equal('+file', tree[1].desc)
+assert_true(tree[1].group)
+assert_equal('files', tree[2].desc)
+assert_equal('map', tree[2].source)
+
+# The walk is bounded: a mistaken group could otherwise recurse as deep as a
+# key sequence can grow.
+assert_equal(['<Space>e', '<Space>f'],
+  mapnew(simplewhichkey#Tree('n', '<leader>', 1), (_, row) => row.keys))
+
+# With no prefix, every hooked prefix of that mode, each introduced by a row
+# of its own so the output reads as a tree.
+var whole = simplewhichkey#Tree('n')
+var roots = filter(copy(whole), (_, row) => row.source ==# 'prefix')
+assert_true(index(mapnew(roots, (_, row) => row.keys), '<Space>') >= 0)
+assert_true(index(mapnew(roots, (_, row) => row.keys), '<C-W>') >= 0)
+assert_true(index(mapnew(whole, (_, row) => row.keys), '<Space>ff') >= 0)
+
+# What is hidden from the panel is hidden from the listing too: one filter,
+# not two.
+g:simplewhichkey_ignore = ['<leader>f']
+assert_equal(['<Space>e'],
+  mapnew(simplewhichkey#Tree('n', '<leader>'), (_, row) => row.keys))
+g:simplewhichkey_ignore = []
+
+# Insert mode has a tree of its own, and CTRL-R's sub-forms lead back to the
+# register list rather than dead-ending.
+setreg('a', 'register-a-content')
+var insert_tree = mapnew(simplewhichkey#Tree('i', '<C-r>'), (_, row) => row.keys)
+assert_true(index(insert_tree, '<C-R>a') >= 0)
+assert_true(index(insert_tree, '<C-R><C-R>a') >= 0)
+
+assert_equal(['n', 'x', 'o', 'i', 'c'], simplewhichkey#CompleteMode('', '', 0))
+assert_equal(['n'], simplewhichkey#CompleteMode('n', '', 0))
+
+SimpleWhichKeyList
+assert_equal('simplewhichkeylist', &filetype)
+assert_equal('nofile', &buftype)
+var listed = join(getline(1, '$'), "\n")
+assert_match('^" SimpleWhichKey: mode n, \d\+ sequences, depth \d\+', listed)
+assert_match('<Space>ff\s\+files\s\+map', listed)
+assert_match('<Space>f\s\++file\s\+map', listed)
+bwipe!
+
+SimpleWhichKeyList!
+assert_equal('SimpleWhichKey n', getqflist({title: 1}).title)
+assert_true(!empty(filter(getqflist(), (_, item) => item.text =~# '<Space>ff')),
+  'the quickfix form must carry the same rows')
+cclose
+call setqflist([], 'r')
+simplewhichkey#Forget()
+
 if !empty(v:errors)
   for error in v:errors
     echomsg error

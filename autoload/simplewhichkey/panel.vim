@@ -96,7 +96,10 @@ def Category(label: string): number
   return label =~# '^[0-9A-Za-z]$' ? 0 : 1
 enddef
 
-def SortEntries(entries: list<dict<any>>): list<dict<any>>
+# Exported so a listing of the whole tree can present each level in exactly
+# the order the panel would: two views of one key map that disagree about
+# order are two things to learn instead of one.
+export def SortEntries(entries: list<dict<any>>): list<dict<any>>
   var groups_first = get(g:, 'simplewhichkey_sort', 'key') ==# 'group'
   return sort(copy(entries), (left, right): number => {
     if groups_first && left.group != right.group

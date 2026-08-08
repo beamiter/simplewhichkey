@@ -975,6 +975,142 @@ export def Show(argument: string, mode: string = 'n')
 enddef
 
 # ---------------------------------------------------------------------------
+# The whole tree
+# ---------------------------------------------------------------------------
+
+# The panel answers "what may follow this key", one level at a time, which is
+# the right question while typing and the wrong one while configuring: you
+# cannot grep a popup, and nothing else in Vim can print a keymap that mixes
+# built-in commands with your mappings.  Tree() walks the same Level() the
+# panel draws and returns it flat.
+#
+# Depth is bounded because the tree is not: '"' leads to the registers, a
+# register name leads nowhere, but a mistaken group could recurse as deep as
+# the sequence can grow.
+def ListDepth(requested: number): number
+  if requested > 0
+    return min([requested, 16])
+  endif
+  var configured = get(g:, 'simplewhichkey_list_depth', 4)
+  if type(configured) != v:t_number || configured <= 0
+    return 4
+  endif
+  return min([configured, 16])
+enddef
+
+def Walk(mode: string, sequence: string, remaining: number, out: list<dict<any>>)
+  if remaining <= 0
+    return
+  endif
+  var nodes: list<dict<any>> = []
+  for [key, node] in items(Level(mode, sequence))
+    add(nodes, extend(copy(node), {key: key}))
+  endfor
+  for node in simplewhichkey#panel#SortEntries(nodes)
+    var full = sequence .. node.key
+    add(out, {
+      keys: simplewhichkey#keys#Label(full),
+      label: node.label,
+      desc: node.desc,
+      group: node.group,
+      source: node.source,
+    })
+    if node.group
+      Walk(mode, full, remaining - 1, out)
+    endif
+  endfor
+enddef
+
+# Every sequence reachable under {prefix}, depth first, in the panel's own
+# order.  With no prefix, every hooked prefix of that mode in turn.
+export def Tree(mode: string = 'n', prefix: string = '', depth: number = 0): list<dict<any>>
+  var limit = ListDepth(depth)
+  var out: list<dict<any>> = []
+  if !empty(prefix)
+    Walk(mode, simplewhichkey#keys#Termcodes(prefix), limit, out)
+    return out
+  endif
+  for lhs in get(hooks, mode, [])
+    var raw = simplewhichkey#keys#Termcodes(lhs)
+    var level = Level(mode, raw)
+    if empty(level)
+      continue
+    endif
+    var name = RegisteredGroup(mode, raw)
+    add(out, {
+      keys: simplewhichkey#keys#Label(raw),
+      label: simplewhichkey#keys#Label(raw),
+      desc: empty(name) ? printf('+%d keys', len(level)) : name,
+      group: true,
+      source: 'prefix',
+    })
+    Walk(mode, raw, limit, out)
+  endfor
+  return out
+enddef
+
+# Completion for the commands that take a mode.  Only the modes something is
+# actually hooked in are offered, so the list never suggests an empty answer.
+export def CompleteMode(lead: string, _: string, _2: number): list<string>
+  var out: list<string> = []
+  for mode in ['n', 'x', 'o', 'i', 'c']
+    if !empty(get(hooks, mode, [])) && stridx(mode, lead) == 0
+      add(out, mode)
+    endif
+  endfor
+  return out
+enddef
+
+# :SimpleWhichKeyList [mode] and :SimpleWhichKeyList! [mode]
+export def List(mode_argument: string, to_quickfix: bool)
+  var mode = empty(mode_argument) ? 'n' : mode_argument
+  if index(['n', 'x', 'o', 'i', 'c'], mode) < 0
+    Notify('unknown mode: ' .. mode .. ' (use n, x, o, i or c)')
+    return
+  endif
+  var rows = Tree(mode)
+  if empty(rows)
+    Notify('nothing is hooked in mode ' .. mode)
+    return
+  endif
+  if to_quickfix
+    setqflist([], ' ', {
+      title: 'SimpleWhichKey ' .. mode,
+      items: mapnew(rows, (_, row) => ({
+        text: printf('%s\t%s', row.keys, row.desc),
+      })),
+    })
+    copen
+    return
+  endif
+  var key_width = 0
+  var desc_width = 0
+  for row in rows
+    key_width = max([key_width, strdisplaywidth(row.keys)])
+    desc_width = max([desc_width, strdisplaywidth(row.desc)])
+  endfor
+  var lines = [
+    printf('" SimpleWhichKey: mode %s, %d sequences, depth %d',
+      mode, len(rows), ListDepth(0)),
+    '" Search with /, close with :q',
+    '',
+  ]
+  for row in rows
+    # Pad by display width, not by character count: a description may hold
+    # register contents, and those are whatever the buffer held.
+    add(lines, printf('%s%s  %s%s  %s',
+      row.keys, repeat(' ', max([0, key_width - strdisplaywidth(row.keys)])),
+      row.desc, repeat(' ', max([0, desc_width - strdisplaywidth(row.desc)])),
+      row.source))
+  endfor
+  new
+  setline(1, lines)
+  setlocal buftype=nofile bufhidden=wipe noswapfile nomodified nomodifiable
+  setlocal filetype=simplewhichkeylist
+  cursor(1, 1)
+enddef
+
+# ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
 
