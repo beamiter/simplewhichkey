@@ -419,8 +419,8 @@ g:simplewhichkey_ignore = ['<leader>fr']
 assert_equal('+1 keys', simplewhichkey#Keys('n', '<leader>').f.desc,
   'a group counted a child it had already hidden')
 
-# A trailing '*' and a /regexp/ are matched against the notation label.
-g:simplewhichkey_ignore = ['<leader>f*']
+# A trailing '**' and a /regexp/ are matched against the notation label.
+g:simplewhichkey_ignore = ['<leader>f**']
 assert_false(has_key(simplewhichkey#Keys('n', '<leader>'), 'f'))
 g:simplewhichkey_ignore = ['/^<Space>[ef]$/']
 var filtered = simplewhichkey#Keys('n', '<leader>')
@@ -431,6 +431,23 @@ assert_true(has_key(filtered, 'f'),
 g:simplewhichkey_ignore = ['/\(/']
 assert_equal(['e', 'f'], sort(keys(simplewhichkey#Keys('n', '<leader>'))),
   'a bad ignore regexp escaped into the panel loop')
+g:simplewhichkey_ignore = []
+
+# '*' is a real key and a real register, so one trailing star stays literal:
+# hiding '<leader>*' or the '*' register must not swallow their siblings.
+nnoremap <silent> <leader>* <Cmd>echo 'star'<CR>
+g:simplewhichkey_ignore = ['<leader>*']
+assert_equal(['e', 'f'], sort(keys(simplewhichkey#Keys('n', '<leader>'))),
+  'a literal trailing * was read as a glob and hid its siblings')
+var quoted = sort(keys(simplewhichkey#Keys('n', '"')))
+g:simplewhichkey_ignore = ['"+', '"*']
+assert_equal(quoted, sort(keys(simplewhichkey#Keys('n', '"'))),
+  'hiding the clipboard registers emptied the whole register panel')
+# Two stars is the glob, and it still reaches the sibling one star left alone.
+g:simplewhichkey_ignore = ['<leader>**']
+assert_equal([], sort(keys(simplewhichkey#Keys('n', '<leader>'))),
+  'the ** glob did not match')
+nunmap <leader>*
 g:simplewhichkey_ignore = []
 
 if !empty(v:errors)

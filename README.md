@@ -141,7 +141,8 @@ let g:simplewhichkey_border = 1
 let g:simplewhichkey_show_builtins = 1  " Vim's own <C-w>, g, z, [, ] commands
 let g:simplewhichkey_hide_aliases = 1   " hide <C-w><C-v> when <C-w>v is listed
 " Hidden from the panel, still working as keys.  Entries hide the sequence and
-" everything below it; '<leader>1*' globs the label and '/regexp/' matches it.
+" everything below it; '<leader>1**' globs the label and '/regexp/' matches it.
+" One trailing star stays literal, so '"*' hides the * register on its own.
 let g:simplewhichkey_ignore = ['<leader>1', '<leader>2']
 ```
 

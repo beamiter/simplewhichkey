@@ -257,8 +257,14 @@ enddef
 # forms, in the order they are cheapest to test:
 #
 #   '<leader>1'         the sequence itself and everything below it
-#   '<leader>1*'        every sequence whose label starts that way
+#   '<leader>1**'       every sequence whose label starts that way
 #   '/^<Space>[0-9]/'   a regexp over the label
+#
+# The glob marker is two stars because one star is a real key and a real
+# register: '"*' has to keep meaning the * register alone, and '<leader>*' the
+# mapping of that name, otherwise adding the glob form would silently turn an
+# existing single hidden key into a hidden subtree.  A sequence whose label
+# genuinely ends in '**' is reached with the regexp form.
 def Ignored(sequence: string): bool
   var patterns = get(g:, 'simplewhichkey_ignore', [])
   if type(patterns) != v:t_list || empty(patterns)
@@ -286,12 +292,12 @@ def Ignored(sequence: string): bool
       endtry
       continue
     endif
-    if pattern[-1 : ] ==# '*'
+    if strlen(pattern) > 2 && pattern[-2 : ] ==# '**'
       if empty(label)
         label = simplewhichkey#keys#Label(sequence)
       endif
       var head = simplewhichkey#keys#Label(simplewhichkey#keys#Termcodes(
-        strpart(pattern, 0, strlen(pattern) - 1)))
+        strpart(pattern, 0, strlen(pattern) - 2)))
       if strpart(label, 0, strlen(head)) ==# head
         return true
       endif

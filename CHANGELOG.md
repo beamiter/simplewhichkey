@@ -23,8 +23,11 @@ All notable changes to SimpleWhichKey are documented here.
   from the live state, or a group prefix — three of the four things the panel
   shows — and a group still counted the children it hid. It is now applied to
   every contribution, against the whole sequence, so naming a group hides its
-  subtree and `+N keys` tells the truth. Entries also accept a trailing `*`
-  glob and a `/regexp/` form over the notation label.
+  subtree and `+N keys` tells the truth. Entries also accept a trailing `**`
+  glob and a `/regexp/` form over the notation label. The glob marker is two
+  stars because one is a real key and a real register: `'"*'` still hides the
+  `*` register alone and `'<leader>*'` still hides only that mapping, instead
+  of being reinterpreted as a hidden subtree.
 
 - `g:simplewhichkey_hide_aliases` survives being given descriptions. Alias
   detection compared description *text* and ran after registered descriptions

@@ -194,11 +194,16 @@ so the "+N keys" it would have shown never counts what it hides. >
 Each entry is one of three forms:
 
     <leader>1       the sequence itself and everything below it
-    <leader>1*      every sequence whose label starts that way
+    <leader>1**     every sequence whose label starts that way
     /^<Space>\d/    a regexp, matched against the |keytrans()| label
 
 The plain form is compared after termcode expansion; the other two are
 compared against the label, which is what |simplewhichkey#Keys()| shows.
+
+The glob marker is two stars, not one, because "*" is an ordinary key and an
+ordinary register: '"*' hides the * register alone and '<leader>*' the mapping
+of that name.  A sequence whose label really ends in "**" is reached with the
+regexp form.
 
 ==============================================================================
 6. DESCRIPTIONS                                  *simplewhichkey-descriptions*
