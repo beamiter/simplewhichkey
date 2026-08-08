@@ -251,7 +251,11 @@ def PopupOptions(title: string, height: number): dict<any>
     options.line = max([1, (&lines - frame) / 2])
   else
     options.pos = 'botleft'
-    options.line = &lines - &cmdheight - (&laststatus > 0 ? 0 : 0)
+    # Sit above the command line, and above the statusline when there is one:
+    # the panel is transient and the statusline is where the file name, the
+    # position and every other plugin's output lives.  Both branches of this
+    # ternary used to be 0, so the compensation never happened.
+    options.line = &lines - &cmdheight - (&laststatus > 0 ? 1 : 0)
   endif
   return options
 enddef

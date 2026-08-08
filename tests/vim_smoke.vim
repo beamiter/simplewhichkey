@@ -101,6 +101,25 @@ assert_match('x\{11}…',
 simplewhichkey#panel#Close()
 g:simplewhichkey_max_desc_width = 30
 
+# The bottom panel stops above the statusline instead of covering it.
+var saved_laststatus = &laststatus
+&laststatus = 2
+simplewhichkey#panel#Show('Bottom', [
+  {label: 'a', desc: 'entry', group: false},
+], "n\x01bottom")
+var bottom = popup_getpos(popup_list()[-1])
+assert_equal(&lines - &cmdheight - 1, bottom.line + bottom.height - 1,
+  'the bottom panel covered the statusline')
+&laststatus = 0
+simplewhichkey#panel#Show('Bottom', [
+  {label: 'a', desc: 'entry', group: false},
+], "n\x01bottom-nostatus")
+bottom = popup_getpos(popup_list()[-1])
+assert_equal(&lines - &cmdheight, bottom.line + bottom.height - 1,
+  'without a statusline the panel keeps that line')
+simplewhichkey#panel#Close()
+&laststatus = saved_laststatus
+
 # ------------------------------------------------------------------ hooks ---
 
 nnoremap <silent> <leader>ff <Cmd>echo 'files'<CR>

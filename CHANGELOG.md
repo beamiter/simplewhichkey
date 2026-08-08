@@ -6,6 +6,9 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Fixed
 
+- A bottom-positioned panel no longer covers the statusline. The ternary meant
+  to compensate for `'laststatus'` had two identical branches and did nothing.
+
 - Descriptions are truncated to a display-column budget instead of a character
   count. A CJK or emoji description escaped truncation at twice its real size,
   overflowed its cell, drove the next column's padding negative and pushed the
