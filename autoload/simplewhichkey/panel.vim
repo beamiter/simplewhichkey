@@ -255,7 +255,13 @@ def PopupOptions(title: string, height: number): dict<any>
     # the panel is transient and the statusline is where the file name, the
     # position and every other plugin's output lives.  Both branches of this
     # ternary used to be 0, so the compensation never happened.
-    options.line = &lines - &cmdheight - (&laststatus > 0 ? 1 : 0)
+    #
+    # Ask whether a statusline is really drawn, not whether the option is
+    # non-zero: at Vim's default 'laststatus' of 1 the last window has no
+    # statusline until the tab page holds a second window, and compensating
+    # there left a blank row between the panel and the command line.
+    var statusline = &laststatus >= 2 || (&laststatus == 1 && winnr('$') > 1)
+    options.line = &lines - &cmdheight - (statusline ? 1 : 0)
   endif
   return options
 enddef

@@ -117,6 +117,24 @@ simplewhichkey#panel#Show('Bottom', [
 bottom = popup_getpos(popup_list()[-1])
 assert_equal(&lines - &cmdheight, bottom.line + bottom.height - 1,
   'without a statusline the panel keeps that line')
+# Vim's default 'laststatus' is 1, which draws a statusline only once the tab
+# page holds a second window.  The compensation has to follow what is drawn,
+# not what the option says, or a stock single-window Vim gets a blank row.
+&laststatus = 1
+simplewhichkey#panel#Show('Bottom', [
+  {label: 'a', desc: 'entry', group: false},
+], "n\x01bottom-ls1-one")
+bottom = popup_getpos(popup_list()[-1])
+assert_equal(&lines - &cmdheight, bottom.line + bottom.height - 1,
+  'laststatus=1 with one window has no statusline to stay above')
+split
+simplewhichkey#panel#Show('Bottom', [
+  {label: 'a', desc: 'entry', group: false},
+], "n\x01bottom-ls1-two")
+bottom = popup_getpos(popup_list()[-1])
+assert_equal(&lines - &cmdheight - 1, bottom.line + bottom.height - 1,
+  'laststatus=1 with a split does draw a statusline the panel must clear')
+only
 simplewhichkey#panel#Close()
 &laststatus = saved_laststatus
 

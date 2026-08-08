@@ -8,6 +8,9 @@ All notable changes to SimpleWhichKey are documented here.
 
 - A bottom-positioned panel no longer covers the statusline. The ternary meant
   to compensate for `'laststatus'` had two identical branches and did nothing.
+  The compensation follows the statusline that is actually drawn rather than
+  the option value, so Vim's default `laststatus=1` with a single window — where
+  there is no statusline — does not leave a blank row above the command line.
 
 - Descriptions are truncated to a display-column budget instead of a character
   count. A CJK or emoji description escaped truncation at twice its real size,
