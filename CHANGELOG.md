@@ -6,6 +6,12 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Fixed
 
+- Descriptions are truncated to a display-column budget instead of a character
+  count. A CJK or emoji description escaped truncation at twice its real size,
+  overflowed its cell, drove the next column's padding negative and pushed the
+  tail of the row off a popup that does not wrap — so those keys became
+  invisible.
+
 - `g:simplewhichkey_ignore` is a real filter. It was consulted only for leaf
   mappings, so it could not hide a built-in command, a register or mark listed
   from the live state, or a group prefix — three of the four things the panel

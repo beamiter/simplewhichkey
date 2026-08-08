@@ -49,14 +49,36 @@ export def ResetProps()
   props_ready = false
 enddef
 
+const ELLIPSIS = '…'
+
+# The budget handed in here is display columns -- Layout() derives it from
+# strdisplaywidth() and pads cells with it -- so it has to be spent in display
+# columns.  Counting characters let a CJK or emoji description through at twice
+# its real size: the cell overflowed, its padding went negative, and every
+# column to its right started late until the row ran off the popup, which does
+# not wrap.
 def Truncate(text: string, width: number): string
   if width <= 0
     return ''
   endif
-  if strchars(text) <= width
+  if strdisplaywidth(text) <= width
     return text
   endif
-  return strcharpart(text, 0, width - 1) .. '…'
+  var budget = width - strdisplaywidth(ELLIPSIS)
+  if budget <= 0
+    return ''
+  endif
+  var kept = ''
+  var used = 0
+  for char in split(text, '\zs')
+    var char_width = strdisplaywidth(char)
+    if used + char_width > budget
+      break
+    endif
+    kept ..= char
+    used += char_width
+  endfor
+  return kept .. ELLIPSIS
 enddef
 
 def Pad(text: string, width: number): string

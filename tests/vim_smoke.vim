@@ -74,6 +74,33 @@ assert_true(simplewhichkey#panel#Scroll(-1))
 simplewhichkey#panel#Close()
 g:simplewhichkey_max_height = 0
 
+# A description is truncated to a display-column budget, not to a character
+# count.  A double-width description that escapes truncation overflows its
+# cell, drives the next column's padding negative and pushes the tail of the
+# row off a popup that does not wrap.
+g:simplewhichkey_max_desc_width = 12
+var wide: list<dict<any>> = []
+for nr in range(6)
+  add(wide, {label: nr2char(char2nr('a') + nr), desc: repeat('宽', 20), group: false})
+endfor
+simplewhichkey#panel#Show('Wide', wide, "n\x01wide")
+var wide_popup = popup_list()[-1]
+var wide_lines = getbufline(winbufnr(wide_popup), 1, '$')
+assert_true(len(wide_lines) > 0)
+for line in wide_lines
+  assert_true(strdisplaywidth(line) <= &columns - 6,
+    printf('a wide description overflowed the panel: %d columns in %s',
+      strdisplaywidth(line), string(line)))
+endfor
+# ASCII keeps working, and the ellipsis is still added.
+simplewhichkey#panel#Show('Wide', [
+  {label: 'a', desc: repeat('x', 40), group: false},
+], "n\x01wide-ascii")
+assert_match('x\{11}…',
+  getbufline(winbufnr(popup_list()[-1]), 1, '$')[0])
+simplewhichkey#panel#Close()
+g:simplewhichkey_max_desc_width = 30
+
 # ------------------------------------------------------------------ hooks ---
 
 nnoremap <silent> <leader>ff <Cmd>echo 'files'<CR>
