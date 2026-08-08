@@ -44,6 +44,13 @@ All notable changes to SimpleWhichKey are documented here.
   reports the sequence. `:SimpleWhichKeyOperator i` is the way to read the
   text object list without pressing an operator.
 
+- `:SimpleWhichKeyVisual` no longer replays the chosen sequence into Normal
+  mode either. Typing `:` leaves Visual mode, so there is no selection behind
+  the command: with `xnoremap gp …` next to `nnoremap gp …` the panel listed
+  the x-mode mapping and choosing it ran the Normal-mode one. It browses when
+  no selection is live, and still replays as listed when it is reached with
+  `<Cmd>` from a Visual mapping.
+
 ### Panel evolution
 
 - Text objects are hinted: `i` and `a` are hooked in Visual and

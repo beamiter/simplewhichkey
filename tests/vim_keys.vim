@@ -46,6 +46,11 @@ nnoremap <silent> <leader>i A
 # emitting a hooked g. Replay suspension must keep that RHS native.
 nmap <silent> <leader>v vg~
 nnoremap <silent> <F8> <Cmd>SimpleWhichKeyOperator<CR>
+# Reached from Normal mode there is no selection behind the visual command;
+# reached with <Cmd> from a Visual mapping there is one, and that difference is
+# what decides between browsing and replaying.
+nnoremap <silent> <F7> <Cmd>SimpleWhichKeyVisual g<CR>
+xnoremap <silent> <F7> <Cmd>SimpleWhichKeyVisual g<CR>
 for key in split('ABCDEFGHIJKLMNOPQRS', '\zs')
   execute $"nnoremap <silent> <leader>{key} <Cmd>let g:hit = 'level-{key}'<CR>"
 endfor
@@ -152,6 +157,56 @@ var steps = [
     assert_match('^n', mode(1))
     nunmap gp
     ounmap gp
+  },
+
+  # :SimpleWhichKeyVisual has the same problem: typing ':' leaves Visual mode,
+  # so replaying the xmap the panel advertised would run the unrelated
+  # Normal-mode command of the same name.
+  () => {
+    nnoremap <silent> gp <Cmd>let g:hit = 'normal-gp'<CR>
+    xnoremap <silent> gp <Cmd>let g:hit = 'visual-gp'<CR>
+    g:hit = ''
+    PutLines(['keep browse keep'])
+    cursor(1, 6)
+    Type("\<F7>")
+  },
+  () => {
+    assert_true(PanelVisible(), 'visual command panel before a selection')
+    assert_match('visual-gp', PanelText(), 'the x-mode gp mapping is listed')
+    Type('p')
+  },
+  () => {
+    assert_true(WaitFor(() => !PanelVisible()),
+      'visual command panel closed after choosing')
+    assert_equal('', g:hit,
+      'browsing visual hints must not run the Normal-mode command')
+    assert_match('^n', mode(1))
+  },
+  # With a live selection behind it -- <Cmd> from a Visual mapping -- the same
+  # command still replays into Visual mode, where the panel's entry is real.
+  () => {
+    g:hit = ''
+    cursor(1, 1)
+    Type("vll\<F7>")
+  },
+  () => {
+    assert_true(PanelVisible(), 'visual command panel over a live selection')
+    Type('p')
+  },
+  () => {
+    assert_true(WaitFor(() => !PanelVisible() && g:hit !=# ''),
+      'a live selection must still run the visual mapping')
+    assert_equal('visual-gp', g:hit,
+      'the visual replay ran the Normal-mode command instead')
+    assert_equal('keep browse keep', getline(1),
+      'the visual replay changes no text')
+    Type("\<Esc>")
+  },
+  () => {
+    assert_true(WaitFor(() => mode(1) =~# '^n'))
+    g:hit = ''
+    nunmap gp
+    xunmap gp
   },
 
   # --- <C-w> opens the built-in window panel and v splits ------------------

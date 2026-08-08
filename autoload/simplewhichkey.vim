@@ -873,6 +873,12 @@ enddef
 # Normal mode, where the same keys are a different command entirely -- with
 # `onoremap gx iw` the panel advertises a text object and choosing it would
 # open the URL under the cursor.  So report the sequence instead.
+#
+# :SimpleWhichKeyVisual has exactly the same problem: typing ':' leaves Visual
+# mode, so there is no selection behind the command either, and an xmap chosen
+# from that panel would run as the unrelated Normal-mode command of the same
+# name.  It browses too -- unless a selection really is live, which is the case
+# when the command is reached through <Cmd> from a Visual mapping.
 def Browse(prefix: string, mode: string)
   var raw_prefix = simplewhichkey#keys#Termcodes(prefix)
   if empty(raw_prefix) || !Flag('simplewhichkey_enable', 1) || active
@@ -886,14 +892,21 @@ def Browse(prefix: string, mode: string)
   if selected.aborted
     return
   endif
-  echo printf('[SimpleWhichKey] operator-pending motion: %s',
+  echo printf('[SimpleWhichKey] %s: %s',
+    mode ==# 'o' ? 'operator-pending motion' : 'visual mode sequence',
     Title(selected.sequence))
+enddef
+
+# True while a Visual or Select selection is live, so a replayed sequence lands
+# in the mode the panel listed.
+def Selecting(): bool
+  return mode() =~# "^[vVsS\<C-V>\<C-S>]"
 enddef
 
 # :SimpleWhichKey [prefix]
 export def Show(argument: string, mode: string = 'n')
   var prefix = empty(argument) ? (mode ==# 'o' ? 'g' : '<leader>') : argument
-  if mode ==# 'o'
+  if mode ==# 'o' || (mode ==# 'x' && !Selecting())
     Browse(prefix, mode)
     return
   endif

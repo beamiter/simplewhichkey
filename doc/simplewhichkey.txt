@@ -233,7 +233,15 @@ Both accept a mode as the last argument, "n" by default.
 
                                                         *:SimpleWhichKeyVisual*
 :SimpleWhichKeyVisual [prefix]
-                            The same, listing visual mode mappings.
+                            The same, listing visual mode mappings.  Typing
+                            ":" leaves Visual mode, so when no selection is
+                            live the chosen sequence is reported rather than
+                            executed -- in Normal mode the same keys are a
+                            different command.  Reached with <Cmd> from a
+                            Visual mapping the selection survives and the
+                            choice runs as listed: >
+    xnoremap <silent> <leader>? <Cmd>SimpleWhichKeyVisual g<CR>
+<
 
                                                       *:SimpleWhichKeyOperator*
 :SimpleWhichKeyOperator [prefix]
