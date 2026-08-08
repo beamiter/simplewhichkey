@@ -313,6 +313,11 @@ def Level(mode: string, sequence: string): dict<any>
     CollectBuiltins(level, mode, sequence)
   endif
   CollectMappings(level, mode, sequence)
+  # Before the overlay: whether two keys are the same command is a fact about
+  # Vim's tables, and the overlay is about to replace the text that says so.
+  if Flag('simplewhichkey_hide_aliases', 1)
+    DropAliases(level)
+  endif
 
   for [key, node] in items(level)
     var full = sequence .. key
@@ -330,15 +335,18 @@ def Level(mode: string, sequence: string): dict<any>
       endif
     endif
   endfor
-  if Flag('simplewhichkey_hide_aliases', 1)
-    DropAliases(level)
-  endif
   return level
 enddef
 
 # Vim gives many window commands a Ctrl variant that does exactly the same
 # thing: <C-w><C-v> is <C-w>v.  Listing both doubles the panel without adding
 # anything, so the Ctrl form is dropped when a plain key already says it.
+#
+# Sameness is decided from the built-in table's own wording, which is why this
+# runs before registered descriptions overwrite it.  Run afterwards, naming
+# <C-w>v renamed only the plain node and every one of the ten window pairs
+# stopped looking like a duplicate -- naming your window commands used to fill
+# the panel with the phantoms this option exists to remove.
 def DropAliases(level: dict<any>)
   var described: dict<bool> = {}
   for [key, node] in items(level)

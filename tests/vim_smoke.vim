@@ -195,6 +195,14 @@ assert_false(has_key(window, '<C-V>'))
 g:simplewhichkey_hide_aliases = 0
 assert_true(has_key(simplewhichkey#Keys('n', '<C-w>'), '<C-V>'))
 g:simplewhichkey_hide_aliases = 1
+# Naming a window command must not resurrect its Ctrl alias. Which keys are the
+# same command is a fact about Vim's tables, not about the text on the node.
+simplewhichkey#Describe({'<C-w>v': 'vertical split'})
+window = simplewhichkey#Keys('n', '<C-w>')
+assert_equal('vertical split', window.v.desc)
+assert_false(has_key(window, '<C-V>'),
+  'a described window command resurrected its Ctrl alias')
+simplewhichkey#Forget()
 
 var visual = simplewhichkey#Keys('x', '<leader>')
 assert_equal(['f'], keys(visual))

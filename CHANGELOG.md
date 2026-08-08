@@ -6,6 +6,13 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Fixed
 
+- `g:simplewhichkey_hide_aliases` survives being given descriptions. Alias
+  detection compared description *text* and ran after registered descriptions
+  had replaced it, so naming a single window command (`<C-w>v`) brought its
+  Ctrl variant back, and naming all of them filled the panel with the ten
+  phantom duplicates the option exists to remove. It now runs on Vim's own
+  table wording, before the overlay.
+
 - `:SimpleWhichKeyOperator` no longer replays the chosen sequence into Normal
   mode. Nothing is pending behind a command line, so an operator-pending
   motion means nothing on its own and the same keys are a different command in
