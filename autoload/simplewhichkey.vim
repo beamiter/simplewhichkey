@@ -251,14 +251,49 @@ def AddNode(level: dict<any>, key: string, description: string, group: bool, sou
   endif
 enddef
 
+# Whether a full key sequence is hidden from the panel.  It is asked about the
+# whole sequence, not about the last key, so naming a group hides its subtree
+# and the group's own "+N keys" never counts what it will not show.  Three
+# forms, in the order they are cheapest to test:
+#
+#   '<leader>1'         the sequence itself and everything below it
+#   '<leader>1*'        every sequence whose label starts that way
+#   '/^<Space>[0-9]/'   a regexp over the label
 def Ignored(sequence: string): bool
   var patterns = get(g:, 'simplewhichkey_ignore', [])
-  if type(patterns) != v:t_list
+  if type(patterns) != v:t_list || empty(patterns)
     return false
   endif
-  for notation in patterns
-    if type(notation) == v:t_string
-          && simplewhichkey#keys#Termcodes(notation) ==# sequence
+  # keytrans() is only worth paying for once, and only for a pattern form that
+  # actually looks at the label.
+  var label = ''
+  for pattern in patterns
+    if type(pattern) != v:t_string || empty(pattern)
+      continue
+    endif
+    if strlen(pattern) > 2 && pattern =~# '^/.*/$'
+      if empty(label)
+        label = simplewhichkey#keys#Label(sequence)
+      endif
+      if label =~# strpart(pattern, 1, strlen(pattern) - 2)
+        return true
+      endif
+      continue
+    endif
+    if pattern[-1 : ] ==# '*'
+      if empty(label)
+        label = simplewhichkey#keys#Label(sequence)
+      endif
+      var head = simplewhichkey#keys#Label(simplewhichkey#keys#Termcodes(
+        strpart(pattern, 0, strlen(pattern) - 1)))
+      if strpart(label, 0, strlen(head)) ==# head
+        return true
+      endif
+      continue
+    endif
+    var raw = simplewhichkey#keys#Termcodes(pattern)
+    if !empty(raw)
+          && (sequence ==# raw || simplewhichkey#keys#StartsWith(sequence, raw))
       return true
     endif
   endfor
@@ -267,7 +302,7 @@ enddef
 
 def CollectBuiltins(level: dict<any>, mode: string, sequence: string)
   for [raw, description] in items(simplewhichkey#builtin#Table(mode))
-    if !simplewhichkey#keys#StartsWith(raw, sequence)
+    if !simplewhichkey#keys#StartsWith(raw, sequence) || Ignored(raw)
       continue
     endif
     var rest = strpart(raw, strlen(sequence))
@@ -276,6 +311,9 @@ def CollectBuiltins(level: dict<any>, mode: string, sequence: string)
     AddNode(level, key, description, !leaf, 'builtin')
   endfor
   for [key, description] in items(simplewhichkey#builtin#Dynamic(mode, sequence))
+    if Ignored(sequence .. key)
+      continue
+    endif
     AddNode(level, key, description, false, 'dynamic')
   endfor
 enddef
@@ -295,12 +333,14 @@ def CollectMappings(level: dict<any>, mode: string, sequence: string)
       if empty(raw) || get(entry, 'rhs', '') =~# HOOK_MARKER
         continue
       endif
+      # Filtering the contribution rather than the finished node is what makes
+      # a hidden subtree disappear from its parent's "+N keys" as well.
+      if Ignored(raw)
+        continue
+      endif
       var rest = strpart(raw, strlen(sequence))
       var key = simplewhichkey#keys#First(rest)
       var leaf = strlen(key) == strlen(rest)
-      if leaf && Ignored(raw)
-        continue
-      endif
       AddNode(level, key, leaf ? DeriveDescription(entry) : '', !leaf, 'map')
     endfor
   endfor

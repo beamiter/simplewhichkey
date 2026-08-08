@@ -186,9 +186,20 @@ listed, for example <C-w><C-v> next to <C-w>v.  Default 1.
 
                                                     *g:simplewhichkey_ignore*
 Key sequences to leave out of the panel.  They keep working; they are only
-hidden. >
+hidden.  Mappings, Vim's built-in commands, registers, marks and group
+prefixes are all filtered alike, and a group takes its whole subtree with it,
+so the "+N keys" it would have shown never counts what it hides. >
     let g:simplewhichkey_ignore = ['<leader>1', '<leader>2']
 <
+Each entry is one of three forms:
+
+    <leader>1       the sequence itself and everything below it
+    <leader>1*      every sequence whose label starts that way
+    /^<Space>\d/    a regexp, matched against the |keytrans()| label
+
+The plain form is compared after termcode expansion; the other two are
+compared against the label, which is what |simplewhichkey#Keys()| shows.
+
 ==============================================================================
 6. DESCRIPTIONS                                  *simplewhichkey-descriptions*
 

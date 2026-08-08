@@ -6,6 +6,14 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Fixed
 
+- `g:simplewhichkey_ignore` is a real filter. It was consulted only for leaf
+  mappings, so it could not hide a built-in command, a register or mark listed
+  from the live state, or a group prefix — three of the four things the panel
+  shows — and a group still counted the children it hid. It is now applied to
+  every contribution, against the whole sequence, so naming a group hides its
+  subtree and `+N keys` tells the truth. Entries also accept a trailing `*`
+  glob and a `/regexp/` form over the notation label.
+
 - `g:simplewhichkey_hide_aliases` survives being given descriptions. Alias
   detection compared description *text* and ran after registered descriptions
   had replaced it, so naming a single window command (`<C-w>v`) brought its

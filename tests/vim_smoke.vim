@@ -297,10 +297,44 @@ assert_match('g\s\+hooked\s\+\d\+ mapping(s), \d\+ built-in(s), 250 ms',
 g:simplewhichkey_delay = 200
 assert_match('delay\s*: 200 ms', execute('SimpleWhichKeyHealth'))
 
+# ----------------------------------------------------------------- ignore ---
+
 # A hidden key disappears from the panel but keeps working as a mapping.
+simplewhichkey#Forget()
+setreg('a', 'register-a-content')
 g:simplewhichkey_ignore = ['<leader>e']
 assert_false(has_key(simplewhichkey#Keys('n', '<leader>'), 'e'))
 assert_equal('<Plug>(demo-toggle)', maparg('<Space>e', 'n'))
+
+# The filter covers everything the panel shows, not only leaf mappings: a
+# built-in command, ...
+g:simplewhichkey_ignore = ['gs']
+assert_false(has_key(simplewhichkey#Keys('n', 'g'), 's'),
+  'a built-in command ignored the filter')
+# ... a register listed from the live editor state, ...
+g:simplewhichkey_ignore = ['"a']
+assert_false(has_key(simplewhichkey#Keys('n', '"'), 'a'),
+  'a dynamic register entry ignored the filter')
+# ... and a group prefix, which takes its whole subtree with it.
+g:simplewhichkey_ignore = ['<leader>f']
+assert_false(has_key(simplewhichkey#Keys('n', '<leader>'), 'f'),
+  'a group prefix ignored the filter')
+
+# What a group advertises must not count what it will not show.
+g:simplewhichkey_ignore = []
+assert_equal('+2 keys', simplewhichkey#Keys('n', '<leader>').f.desc)
+g:simplewhichkey_ignore = ['<leader>fr']
+assert_equal('+1 keys', simplewhichkey#Keys('n', '<leader>').f.desc,
+  'a group counted a child it had already hidden')
+
+# A trailing '*' and a /regexp/ are matched against the notation label.
+g:simplewhichkey_ignore = ['<leader>f*']
+assert_false(has_key(simplewhichkey#Keys('n', '<leader>'), 'f'))
+g:simplewhichkey_ignore = ['/^<Space>[ef]$/']
+var filtered = simplewhichkey#Keys('n', '<leader>')
+assert_false(has_key(filtered, 'e'))
+assert_true(has_key(filtered, 'f'),
+  'an anchored regexp matched a leaf, so the group must survive')
 g:simplewhichkey_ignore = []
 
 if !empty(v:errors)
