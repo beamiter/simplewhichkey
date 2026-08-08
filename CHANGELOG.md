@@ -56,6 +56,16 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Panel evolution
 
+- One read of the mapping table per operation instead of one per level. What a
+  panel costs is how many times `maplist()` is swept times how many mappings
+  are in it, and the tree walk swept once per group: listing a 676-mapping
+  keymap took 99 sweeps, `:SimpleWhichKeyHealth` took 71, one panel level took
+  3. Each is now exactly 1 — a snapshot is opened for the duration of a bounded
+  operation and closed before anything installs or removes a mapping, so
+  nothing can go stale. `simplewhichkey#Sweeps()` reports the running total,
+  and `make check` now runs a `test-scale` target that asserts the budget in
+  sweeps rather than in seconds a loaded machine can invent.
+
 - Derived descriptions try harder, so fewer of them need writing by hand. A
   mapping whose right hand side is one of Vim's own prefixed commands now takes
   that command's name — `<leader>w=` mapped to `<C-w>=` reads as

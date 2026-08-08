@@ -53,6 +53,51 @@ var restore_timer = -1
 # Small helpers
 # ---------------------------------------------------------------------------
 
+# One maplist() sweep is cheap; the number of them is not.  Level() is built
+# once to decide whether a prefix has anything to show, again for the first
+# panel, again for every keystroke that descends, and once per group when the
+# whole tree is listed -- each sweep copying every mapping in the editor.
+#
+# Everything that reads the mapping table goes through Mappings(), which is a
+# live sweep unless a bounded operation has opened a snapshot.  The snapshot is
+# never left open across anything that installs or removes a mapping, which is
+# what makes "cached" safe here: within one panel session or one listing the
+# mapping table cannot change, because the plugin is the only thing running.
+var snapshot: list<dict<any>> = []
+var snapshot_depth = 0
+var sweeps = 0
+
+def OpenSnapshot()
+  if snapshot_depth == 0
+    sweeps += 1
+    snapshot = maplist()
+  endif
+  snapshot_depth += 1
+enddef
+
+def CloseSnapshot()
+  snapshot_depth -= 1
+  if snapshot_depth <= 0
+    snapshot_depth = 0
+    snapshot = []
+  endif
+enddef
+
+def Mappings(): list<dict<any>>
+  if snapshot_depth > 0
+    return snapshot
+  endif
+  sweeps += 1
+  return maplist()
+enddef
+
+# How many times the mapping table has been read since Vim started.  The
+# answer to "why does the panel feel slow in this configuration" is usually
+# this number multiplied by how many mappings you have.
+export def Sweeps(): number
+  return sweeps
+enddef
+
 def Notify(message: string)
   echohl WarningMsg
   echomsg '[SimpleWhichKey] ' .. message
@@ -405,7 +450,7 @@ def CollectMappings(level: dict<any>, mode: string, sequence: string)
   # Global mappings first: a buffer-local mapping on the same keys wins, and
   # overwriting in that order is what makes it win here too.
   for buffer_local in [0, 1]
-    for entry in maplist()
+    for entry in Mappings()
       if get(entry, 'abbr', 0) || get(entry, 'buffer', 0) != buffer_local
         continue
       endif
@@ -571,7 +616,7 @@ enddef
 # overwrite a hidden user mapping or fail to remove a hidden plugin hook.
 def GlobalMapping(lhs: string, mode: string): dict<any>
   var wanted = simplewhichkey#keys#Termcodes(lhs)
-  for entry in maplist()
+  for entry in Mappings()
     if get(entry, 'abbr', 0) || get(entry, 'buffer', 0)
           \ || !ModeMatches(get(entry, 'mode', ''), mode)
       continue
@@ -798,7 +843,7 @@ enddef
 # the time Start() runs the user has already paused.  Waiting again would only
 # add lag; the extra delay is for prefixes Vim dispatches immediately.
 def Ambiguous(mode: string, sequence: string): bool
-  for entry in maplist()
+  for entry in Mappings()
     if get(entry, 'abbr', 0) || !ModeMatches(get(entry, 'mode', ''), mode)
       continue
     endif
@@ -874,6 +919,9 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
   active = true
   var sequence = raw_prefix
   var stack: list<string> = []
+  # Nothing installs or removes a mapping between here and the choice, so one
+  # sweep answers every Level() and Ambiguous() of the whole session.
+  OpenSnapshot()
   var pending = PollKey(InitialDelay(mode, raw_prefix))
   var aborted = false
 
@@ -928,6 +976,9 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
   finally
     simplewhichkey#panel#Close()
     active = false
+    # Before the caller suspends hooks, which is a change to the very table
+    # the snapshot froze.
+    CloseSnapshot()
   endtry
 
   return {aborted: aborted, sequence: sequence}
@@ -951,13 +1002,25 @@ def ExprHook(prefix: string, mode: string): string
   if empty(raw_prefix)
     return ''
   endif
-  if !Flag('simplewhichkey_enable', 1) || active || Occupied(mode)
-        \ || empty(Level(mode, raw_prefix))
+  # One snapshot covers both the "is anything listed here" question and the
+  # session that follows, so a prefix costs one sweep rather than two.
+  var selected: dict<any> = {}
+  OpenSnapshot()
+  try
+    if !Flag('simplewhichkey_enable', 1) || active || Occupied(mode)
+          \ || empty(Level(mode, raw_prefix))
+      selected = {}
+    else
+      selected = SelectSequence(raw_prefix, mode)
+    endif
+  finally
+    CloseSnapshot()
+  endtry
+  if empty(selected)
     Suspend(mode)
     ScheduleRestore()
     return IGNORE_KEY .. raw_prefix
   endif
-  var selected = SelectSequence(raw_prefix, mode)
   if selected.aborted
     # Esc cancels the pending operator, which is what was asked for.  While
     # typing, the same key would leave Insert mode or throw away the command
@@ -1003,12 +1066,20 @@ export def Start(prefix: string, mode: string = 'n')
 
   # Disabled, re-entered, or nothing known under this prefix: hand the key back
   # without waiting, so a key that has nothing to show keeps its native speed.
-  if !Flag('simplewhichkey_enable', 1) || active || empty(Level(mode, raw_prefix))
-    Feed(replay_head .. raw_prefix, mode)
-    return
-  endif
-
-  var selected = SelectSequence(raw_prefix, mode)
+  # One snapshot covers that question and the session that follows; it is
+  # closed before Feed(), which suspends hooks and so changes the table.
+  var selected: dict<any> = {}
+  OpenSnapshot()
+  try
+    if !Flag('simplewhichkey_enable', 1) || active
+          \ || empty(Level(mode, raw_prefix))
+      selected = {aborted: false, sequence: raw_prefix}
+    else
+      selected = SelectSequence(raw_prefix, mode)
+    endif
+  finally
+    CloseSnapshot()
+  endtry
   if selected.aborted
     return
   endif
@@ -1019,13 +1090,18 @@ enddef
 # a configuration ( :echo simplewhichkey#Keys('n', '<C-w>') ) and in tests.
 export def Keys(mode: string, prefix: string): dict<any>
   var out: dict<any> = {}
-  for [key, node] in items(Level(mode, simplewhichkey#keys#Termcodes(prefix)))
-    out[simplewhichkey#keys#Label(key)] = {
-      desc: node.desc,
-      group: node.group,
-      source: node.source,
-    }
-  endfor
+  OpenSnapshot()
+  try
+    for [key, node] in items(Level(mode, simplewhichkey#keys#Termcodes(prefix)))
+      out[simplewhichkey#keys#Label(key)] = {
+        desc: node.desc,
+        group: node.group,
+        source: node.source,
+      }
+    endfor
+  finally
+    CloseSnapshot()
+  endtry
   return out
 enddef
 
@@ -1127,26 +1203,33 @@ enddef
 export def Tree(mode: string = 'n', prefix: string = '', depth: number = 0): list<dict<any>>
   var limit = ListDepth(depth)
   var out: list<dict<any>> = []
-  if !empty(prefix)
-    Walk(mode, simplewhichkey#keys#Termcodes(prefix), limit, out)
-    return out
-  endif
-  for lhs in get(hooks, mode, [])
-    var raw = simplewhichkey#keys#Termcodes(lhs)
-    var level = Level(mode, raw)
-    if empty(level)
-      continue
+  # A walk touches Level() once per group; without one snapshot around the
+  # whole thing that is one sweep of every mapping in the editor per group.
+  OpenSnapshot()
+  try
+    if !empty(prefix)
+      Walk(mode, simplewhichkey#keys#Termcodes(prefix), limit, out)
+      return out
     endif
-    var name = RegisteredGroup(mode, raw)
-    add(out, {
-      keys: simplewhichkey#keys#Label(raw),
-      label: simplewhichkey#keys#Label(raw),
-      desc: empty(name) ? printf('+%d keys', len(level)) : name,
-      group: true,
-      source: 'prefix',
-    })
-    Walk(mode, raw, limit, out)
-  endfor
+    for lhs in get(hooks, mode, [])
+      var raw = simplewhichkey#keys#Termcodes(lhs)
+      var level = Level(mode, raw)
+      if empty(level)
+        continue
+      endif
+      var name = RegisteredGroup(mode, raw)
+      add(out, {
+        keys: simplewhichkey#keys#Label(raw),
+        label: simplewhichkey#keys#Label(raw),
+        desc: empty(name) ? printf('+%d keys', len(level)) : name,
+        group: true,
+        source: 'prefix',
+      })
+      Walk(mode, raw, limit, out)
+    endfor
+  finally
+    CloseSnapshot()
+  endtry
   return out
 enddef
 
@@ -1219,7 +1302,7 @@ enddef
 # out.  Both reports below start from this one sweep.
 def UserMappings(mode: string): list<string>
   var seen: dict<bool> = {}
-  for entry in maplist()
+  for entry in Mappings()
     if get(entry, 'abbr', 0) || !ModeMatches(get(entry, 'mode', ''), mode)
       continue
     endif
@@ -1286,6 +1369,8 @@ enddef
 
 # :SimpleWhichKeyConflicts
 export def Report()
+  OpenSnapshot()
+  defer CloseSnapshot()
   var lines = ['[SimpleWhichKey] conflicts']
   if !&timeout
     add(lines, "  [WARN] 'notimeout' is set: Vim never dispatches an ambiguous")
@@ -1336,7 +1421,7 @@ enddef
 
 def CountMappings(mode: string, sequence: string): number
   var total = 0
-  for entry in maplist()
+  for entry in Mappings()
     if get(entry, 'abbr', 0) || !ModeMatches(get(entry, 'mode', ''), mode)
       continue
     endif
@@ -1351,6 +1436,8 @@ def CountMappings(mode: string, sequence: string): number
 enddef
 
 export def Health()
+  OpenSnapshot()
+  defer CloseSnapshot()
   var lines = ['[SimpleWhichKey] health']
   add(lines, printf('  vim            : %d.%d patch %d',
     v:version / 100, v:version % 100, v:versionlong % 10000))

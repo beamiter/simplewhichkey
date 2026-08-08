@@ -420,6 +420,14 @@ simplewhichkey#Tree([{mode}] [, {prefix}] [, {depth}])  *simplewhichkey#Tree()*
         what |:SimpleWhichKeyList| renders: >
             :echo len(simplewhichkey#Tree('n'))
 <
+simplewhichkey#Sweeps()                              *simplewhichkey#Sweeps()*
+        How many times the mapping table has been read since Vim started.
+        What a panel costs is that number multiplied by how many mappings you
+        have, so it is the number to watch when hints feel slow in a large
+        configuration.  One panel session, one |:SimpleWhichKeyList|, one
+        |:SimpleWhichKeyHealth| and one |simplewhichkey#Keys()| are one read
+        each, however many levels or groups they touch.
+
 simplewhichkey#Conflicts([{mode}])                *simplewhichkey#Conflicts()*
         Every pair {short, long} of your mappings where the long one continues
         the short one, as |keytrans()| labels.  The short one waits a full
