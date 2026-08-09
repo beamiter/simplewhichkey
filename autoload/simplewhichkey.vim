@@ -499,12 +499,19 @@ def SharedPrefix(texts: list<string>): string
     endif
   endfor
   var chars = split(texts[0], '\zs')
-  var cut = shared == len(chars) ? shared : 0
-  for index in range(1, min([shared, len(chars) - 1]))
-    if chars[index] =~# '\u' || chars[index - 1] =~# '[^0-9A-Za-z]'
-      cut = index
-    endif
-  endfor
+  var cut = 0
+  if shared == len(chars)
+    # The whole of this name is what the others begin with, so it is already
+    # a word boundary and the name is all of it: ':SimpleGit' in front of
+    # ':SimpleGitStatusExtra' is 'SimpleGit', not 'Simple'.
+    cut = shared
+  else
+    for index in range(1, min([shared, len(chars) - 1]))
+      if chars[index] =~# '\u' || chars[index - 1] =~# '[^0-9A-Za-z]'
+        cut = index
+      endif
+    endfor
+  endif
   var prefix = substitute(strcharpart(texts[0], 0, cut), '[^0-9A-Za-z]\+$', '', '')
   # A name has to dominate what it names.  'echo' in front of two different
   # :echo commands is a shared beginning, not a subject; 'SimpleGit' in front

@@ -462,11 +462,21 @@ simplewhichkey#Forget()
 # 'echo' in front of two different :echo commands names nothing.
 assert_equal('+2 keys', simplewhichkey#Keys('n', '<leader>').f.desc)
 # Neither is a half word: the cut lands on a word boundary or nowhere.
+# SimpleGitStatus and SimpleGitStash share 'SimpleGitSta', which is half of
+# both, so the name falls back to the boundary below it.
+nunmap <leader>gd
 nunmap <leader>gl
 nnoremap <silent> <leader>gl <Cmd>SimpleGitStash<CR>
-assert_equal('+SimpleGit', simplewhichkey#Keys('n', '<leader>').g.desc)
+assert_equal('+SimpleGit', simplewhichkey#Keys('n', '<leader>').g.desc,
+  'a shared beginning that stops mid word must cut back to a boundary')
+# A shared beginning that is the whole of one name is already a boundary, and
+# the name is all of it: two keys onto the same command are named after that
+# command, not after its first word.
+nunmap <leader>gl
+nnoremap <silent> <leader>gl <Cmd>SimpleGitStatus<CR>
+assert_equal('+SimpleGitStatus', simplewhichkey#Keys('n', '<leader>').g.desc,
+  'a name the others begin with must not be cut short')
 nunmap <leader>gs
-nunmap <leader>gd
 nunmap <leader>gl
 
 # ------------------------------------------------------- buffer-local names -

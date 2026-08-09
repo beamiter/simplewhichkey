@@ -12,6 +12,12 @@ All notable changes to SimpleWhichKey are documented here.
   and was silently dropped — and `<C-r>`, which is a prefix in Insert mode and
   on the command line both, could not be given different waits in the two.
 
+- A derived group name is no longer cut short when the shared beginning is the
+  whole of one description. Two mappings to `:SimpleGit` and
+  `:SimpleGitStatusExtra` were named `+Simple`, because the search for a word
+  boundary ran on past the end of the shorter name and threw it away. The end
+  of a description is a boundary, and the name is now all of it.
+
 - A register being executed keeps its native speed to its last key. The
   Insert/command-line hook stood aside on `state('m')` alone, which reports
   keys that are still *queued* rather than where a key came from: a register

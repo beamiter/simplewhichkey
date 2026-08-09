@@ -276,11 +276,12 @@ things change when it is on:
       group "+SimpleGit" instead of "+3 keys".
 
 The second rule is deliberately hard to satisfy: the shared beginning has to
-end on a word boundary, be at least three characters long, and cover at least
-half of the shortest description under the key.  A group is named after what
-its keys are about, not after a word they happen to start with -- "echo" in
-front of two different :echo commands names nothing, so that group is still
-counted.
+end on a word boundary -- the end of a whole description counts as one, so
+:SimpleGit in front of :SimpleGitStatusExtra names the group "+SimpleGit" --
+be at least three characters long, and cover at least half of the shortest
+description under the key.  A group is named after what its keys are about,
+not after a word they happen to start with -- "echo" in front of two different
+:echo commands names nothing, so that group is still counted.
 
 Set to 0 for the plain right hand side and "+N keys" everywhere.
 
