@@ -1283,7 +1283,7 @@ export def List(mode_argument: string, to_quickfix: bool)
     setqflist([], ' ', {
       title: 'SimpleWhichKey ' .. mode,
       items: mapnew(rows, (_, row) => ({
-        text: printf('%s\t%s', row.keys, row.desc),
+        text: printf("%s\t%s", row.keys, row.desc),
       })),
     })
     copen

@@ -727,6 +727,12 @@ SimpleWhichKeyList!
 assert_equal('SimpleWhichKey n', getqflist({title: 1}).title)
 assert_true(!empty(filter(getqflist(), (_, item) => item.text =~# '<Space>ff')),
   'the quickfix form must carry the same rows')
+# The two columns are separated by a tab, not by the two characters a
+# single-quoted '\t' would leave in every row.
+var qf_row = filter(getqflist(), (_, item) => item.text =~# '<Space>ff')[0]
+assert_equal("<Space>ff\tfiles", qf_row.text)
+assert_false(qf_row.text =~# '\\t',
+  'a literal backslash-t must not reach the quickfix list')
 cclose
 call setqflist([], 'r')
 simplewhichkey#Forget()

@@ -25,6 +25,11 @@ All notable changes to SimpleWhichKey are documented here.
   reset them, there being no buffer-scoped `Forget()` — got `E716` from the
   next call.
 
+- `:SimpleWhichKeyList!` separates its two quickfix columns with a tab. The
+  separator was written `'%s\t%s'` in a single-quoted string, which is a
+  backslash and a "t", so every row in the quickfix list carried those two
+  characters instead.
+
 - A register being executed keeps its native speed to its last key. The
   Insert/command-line hook stood aside on `state('m')` alone, which reports
   keys that are still *queued* rather than where a key came from: a register
