@@ -18,19 +18,22 @@ test-scale:
 
 # Real keystrokes need a pty.
 test-keys:
-	@rm -f tests/.keys-result tests/.keys-clipboard-plus-result tests/.keys-clipboard-star-result
+	@rm -f tests/.keys-result tests/.keys-macro-result tests/.keys-clipboard-plus-result tests/.keys-clipboard-star-result
 	@script -qec "stty cols 100 rows 30; vim -N -u NONE -n -i NONE -S tests/vim_keys.vim" /dev/null >/dev/null
 	@cat tests/.keys-result
 	@grep -q '^PASS$$' tests/.keys-result
+	@script -qec "stty cols 100 rows 30; vim -N -u NONE -n -i NONE -S tests/vim_keys_macro.vim" /dev/null >/dev/null
+	@cat tests/.keys-macro-result
+	@grep -q '^PASS macro$$' tests/.keys-macro-result
 	@SIMPLEWHICHKEY_TEST_CLIPBOARD=unnamedplus SIMPLEWHICHKEY_TEST_OUT=tests/.keys-clipboard-plus-result script -qec "stty cols 100 rows 30; vim -N -u NONE -n -i NONE -S tests/vim_operator_clipboard.vim" /dev/null >/dev/null
 	@cat tests/.keys-clipboard-plus-result
 	@grep -q '^PASS unnamedplus$$' tests/.keys-clipboard-plus-result
 	@SIMPLEWHICHKEY_TEST_CLIPBOARD=unnamed SIMPLEWHICHKEY_TEST_OUT=tests/.keys-clipboard-star-result script -qec "stty cols 100 rows 30; vim -N -u NONE -n -i NONE -S tests/vim_operator_clipboard.vim" /dev/null >/dev/null
 	@cat tests/.keys-clipboard-star-result
 	@grep -q '^PASS unnamed$$' tests/.keys-clipboard-star-result
-	@rm -f tests/.keys-result tests/.keys-clipboard-plus-result tests/.keys-clipboard-star-result
+	@rm -f tests/.keys-result tests/.keys-macro-result tests/.keys-clipboard-plus-result tests/.keys-clipboard-star-result
 
 test: test-vim test-scale test-keys
 
 clean:
-	rm -f tests/.keys-result tests/.keys-clipboard-plus-result tests/.keys-clipboard-star-result doc/tags
+	rm -f tests/.keys-result tests/.keys-macro-result tests/.keys-clipboard-plus-result tests/.keys-clipboard-star-result doc/tags

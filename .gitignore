@@ -1,3 +1,6 @@
 doc/tags
 tests/.keys-result
+tests/.keys-macro-result
+tests/.keys-clipboard-plus-result
+tests/.keys-clipboard-star-result
 defcompile-errors.log

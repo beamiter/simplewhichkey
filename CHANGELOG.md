@@ -6,6 +6,17 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Fixed
 
+- A register being executed keeps its native speed to its last key. The
+  Insert/command-line hook stood aside on `state('m')` alone, which reports
+  keys that are still *queued* rather than where a key came from: a register
+  whose last key was `<C-r>` fell through the guard, so `@q` paused for
+  `g:simplewhichkey_delay` and opened a panel in the middle of a replay.
+  `reg_executing()` is the one origin Vim does report and is now part of the
+  guard. The documentation claimed the same exemption for a mapping, a
+  `:normal` or a `feedkeys()` whose last key is the prefix, which Vim gives no
+  way to detect; it now says what the code tests, and the case is listed under
+  the limits.
+
 - The panel fits on the screen. Vim's `minwidth`/`maxwidth` size a popup's text
   area alone, and the panel asked for `&columns - 2` columns of text and then
   drew a border and padding on top of that: on an 80 column terminal the frame
@@ -123,10 +134,11 @@ All notable changes to SimpleWhichKey are documented here.
   kinds. Both are built-in commands no `maplist()` sweep can find. They go
   through the same `<expr>` hook as the operator prefixes, so the text typed so
   far, the cursor and the half-written command line are never reconstructed.
-  The hook stands aside while a completion menu is open and while keys arrive
-  from a mapping or a `feedkeys()`, and `<Esc>` dismisses the panel without
-  leaving Insert mode or abandoning the command line. Configured through the
-  new `i` and `c` entries of `g:simplewhichkey_prefixes`.
+  The hook stands aside while a completion menu is open, while a register is
+  being executed, and while more keys are already queued behind the prefix, and
+  `<Esc>` dismisses the panel without leaving Insert mode or abandoning the
+  command line. Configured through the new `i` and `c` entries of
+  `g:simplewhichkey_prefixes`.
 
 - Text objects are hinted: `i` and `a` are hooked in Visual and
   Operator-pending mode by default, so pausing in `di`, `ca` or `va` lists

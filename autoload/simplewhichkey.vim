@@ -985,13 +985,22 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
 enddef
 
 # Reasons never to interrupt with a panel while text is being typed.  A live
-# completion menu is state a redraw would disturb, and keys arriving from a
-# mapping, a :normal or a feedkeys() are not a person pausing to think.
+# completion menu is state a redraw would disturb; a register being replayed is
+# a machine rather than a person pausing to think; and keys already queued
+# behind the prefix -- the rest of a mapping, a :normal or a feedkeys() -- are
+# about to answer the panel's question themselves.
+#
+# Vim reports queued keys, not where a key came from: state('m') is empty as
+# soon as the prefix is the *last* key of a mapping or a feedkeys(), and
+# nothing distinguishes that from a person pressing the same key.  There the
+# panel does open, which is also what Vim does with the prefix either way --
+# CTRL-R and CTRL-X both wait for the next key.  reg_executing() is the one
+# origin Vim does report, so a register keeps its native speed to its last key.
 def Occupied(mode: string): bool
   if mode !=# 'i' && mode !=# 'c'
     return false
   endif
-  return pumvisible() || !empty(state('m'))
+  return pumvisible() || !empty(reg_executing()) || !empty(state('m'))
 enddef
 
 # The body every <expr> hook shares.  Selection happens while Vim's own state

@@ -57,7 +57,8 @@ yanked into; `<C-r><C-r>`, `<C-r><C-o>` and `<C-r><C-p>` lead to the same list.
 lines, file names, tags, omni, dictionary, thesaurus. Both return the chosen
 keys from an `<expr>` mapping instead of feeding them, so the text typed so far
 and the half-written command line are Vim's own throughout; the panel stands
-aside entirely while a completion menu is open, and `<Esc>` dismisses it
+aside while a completion menu is open, while a register is being executed, and
+while more keys are already queued behind the prefix, and `<Esc>` dismisses it
 without leaving Insert mode.
 
 ```
@@ -260,6 +261,12 @@ hooked prefixes list nothing. `simplewhichkey#Conflicts()` and
 - `:normal <C-w>v` in a script (with mappings, no `!`) goes through the panel's
   replay, so those keys run after the `:normal` finishes instead of inside it.
   Script code should use `:normal!` anyway.
+- Vim reports keys that are still queued, not where a key came from, so a
+  mapping or a `feedkeys()` whose *last* key is `<C-r>` or `<C-x>` is
+  indistinguishable from a person pressing it and does open the panel. Vim's
+  own `<C-r>` waits for the next key there either way; only the delay is new.
+  Executing a register (`@q`) is the one origin Vim does report, and that one
+  keeps its native speed to its last key.
 - Insert and command-line mode are hooked for `<C-r>` and `<C-x>` only; no
   other prefix there is a Vim command that could be listed. Operator-pending
   mode defaults to `g`, `[`, `]`, `i` and `a`; remove the `o`, `i` or `c` entry
