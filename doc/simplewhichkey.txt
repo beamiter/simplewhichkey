@@ -276,12 +276,15 @@ things change when it is on:
       group "+SimpleGit" instead of "+3 keys".
 
 The second rule is deliberately hard to satisfy: the shared beginning has to
-end on a word boundary -- the end of a whole description counts as one, so
+end on a word boundary, be at least three characters long, and cover at least
+half of the shortest description under the key.  A word starts at a capital
+letter and after a separator, so "SimpleGitStatus" and "simple-grep-word" are
+cut alike; the end of the shortest description is a boundary too, which is why
 :SimpleGit in front of :SimpleGitStatusExtra names the group "+SimpleGit" --
-be at least three characters long, and cover at least half of the shortest
-description under the key.  A group is named after what its keys are about,
-not after a word they happen to start with -- "echo" in front of two different
-:echo commands names nothing, so that group is still counted.
+whichever of the two Vim happens to list first.  A group is named after what
+its keys are about, not after a word they happen to start with -- "echo" in
+front of two different :echo commands names nothing, so that group is still
+counted.
 
 Set to 0 for the plain right hand side and "+N keys" everywhere.
 

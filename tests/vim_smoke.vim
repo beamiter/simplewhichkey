@@ -469,15 +469,48 @@ nunmap <leader>gl
 nnoremap <silent> <leader>gl <Cmd>SimpleGitStash<CR>
 assert_equal('+SimpleGit', simplewhichkey#Keys('n', '<leader>').g.desc,
   'a shared beginning that stops mid word must cut back to a boundary')
-# A shared beginning that is the whole of one name is already a boundary, and
-# the name is all of it: two keys onto the same command are named after that
-# command, not after its first word.
-nunmap <leader>gl
-nnoremap <silent> <leader>gl <Cmd>SimpleGitStatus<CR>
-assert_equal('+SimpleGitStatus', simplewhichkey#Keys('n', '<leader>').g.desc,
-  'a name the others begin with must not be cut short')
+# A shared beginning that is the whole of one description is already a
+# boundary, and the name is all of it: ':SimpleGit' in front of the longer
+# ':SimpleGitStatusExtra' is 'SimpleGit', not 'Simple'.
 nunmap <leader>gs
 nunmap <leader>gl
+nnoremap <silent> <leader>gs <Cmd>SimpleGitStatusExtra<CR>
+nnoremap <silent> <leader>gl <Cmd>SimpleGit<CR>
+assert_equal('+SimpleGit', simplewhichkey#Keys('n', '<leader>').g.desc,
+  'a name the others begin with must not be cut short')
+# Two keys onto the same command are named after that command, not after its
+# first word: the whole of a description is the whole of itself too.
+nunmap <leader>gs
+nunmap <leader>gl
+nnoremap <silent> <leader>gs <Cmd>SimpleGitStatus<CR>
+nnoremap <silent> <leader>gl <Cmd>SimpleGitStatus<CR>
+assert_equal('+SimpleGitStatus', simplewhichkey#Keys('n', '<leader>').g.desc,
+  'two keys onto one command must be named after it')
+nunmap <leader>gs
+nunmap <leader>gl
+# Which of the two the mapping table lists first is invisible to the user and
+# changes whenever an ftplugin remaps a key, so it cannot decide the name.
+# ':lopen' in front of ':lopen 20' is '+lopen' from either definition order.
+nnoremap <silent> <leader>qa <Cmd>lopen<CR>
+nnoremap <silent> <leader>qb <Cmd>lopen 20<CR>
+assert_equal('+lopen', simplewhichkey#Keys('n', '<leader>').q.desc,
+  'the shortest description names the group when the longer one is newest')
+nunmap <leader>qa
+nunmap <leader>qb
+nnoremap <silent> <leader>qb <Cmd>lopen 20<CR>
+nnoremap <silent> <leader>qa <Cmd>lopen<CR>
+assert_equal('+lopen', simplewhichkey#Keys('n', '<leader>').q.desc,
+  'the shortest description names the group when it is itself the newest')
+nunmap <leader>qa
+nunmap <leader>qb
+# A word start is a capital letter or anything after a separator, so a family
+# of names with no capital in it is cut at its separator all the same.
+nnoremap <silent> <leader>pw <Plug>(simple-grep-word)
+nnoremap <silent> <leader>pf <Plug>(simple-grep-file)
+assert_equal('+simple-grep', simplewhichkey#Keys('n', '<leader>').p.desc,
+  'a separator must end a word as much as a capital does')
+nunmap <leader>pw
+nunmap <leader>pf
 
 # ------------------------------------------------------- buffer-local names -
 

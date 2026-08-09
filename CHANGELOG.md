@@ -16,7 +16,12 @@ All notable changes to SimpleWhichKey are documented here.
   whole of one description. Two mappings to `:SimpleGit` and
   `:SimpleGitStatusExtra` were named `+Simple`, because the search for a word
   boundary ran on past the end of the shorter name and threw it away. The end
-  of a description is a boundary, and the name is now all of it.
+  of the *shortest* description is a boundary, and the name is now all of it.
+  The boundary was at first measured against whichever description Vim's
+  mapping table listed first instead, so `:lopen` and `:lopen 20` under one
+  prefix derived `+lopen` or `+2 keys` depending on which of the two had been
+  mapped most recently — an order the user cannot see and that changes
+  whenever an ftplugin remaps a key.
 
 - `simplewhichkey#Describe()` with `{buffer}` rebuilds whichever of
   `b:simplewhichkey_descriptions` and `b:simplewhichkey_groups` is missing.

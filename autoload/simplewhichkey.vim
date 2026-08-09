@@ -490,6 +490,7 @@ def SharedPrefix(texts: list<string>): string
     return ''
   endif
   var shared = strchars(texts[0])
+  var shortest = shared
   for text in texts[1 : ]
     if empty(text)
       return ''
@@ -500,16 +501,20 @@ def SharedPrefix(texts: list<string>): string
       index += 1
     endwhile
     shared = index
+    shortest = min([shortest, strchars(text)])
     if shared == 0
       return ''
     endif
   endfor
   var chars = split(texts[0], '\zs')
   var cut = 0
-  if shared == len(chars)
-    # The whole of this name is what the others begin with, so it is already
-    # a word boundary and the name is all of it: ':SimpleGit' in front of
-    # ':SimpleGitStatusExtra' is 'SimpleGit', not 'Simple'.
+  # Measured against the shortest text rather than against texts[0], because
+  # which of them the mapping table happens to list first is no business of
+  # the name a user reads.
+  if shared == shortest
+    # The whole of the shortest name is what the others begin with, so it is
+    # already a word boundary and the name is all of it: ':SimpleGit' in front
+    # of ':SimpleGitStatusExtra' is 'SimpleGit', not 'Simple'.
     cut = shared
   else
     for index in range(1, min([shared, len(chars) - 1]))
@@ -522,10 +527,6 @@ def SharedPrefix(texts: list<string>): string
   # A name has to dominate what it names.  'echo' in front of two different
   # :echo commands is a shared beginning, not a subject; 'SimpleGit' in front
   # of SimpleGitStatus and SimpleGitDiff is the subject.
-  var shortest = strchars(texts[0])
-  for text in texts
-    shortest = min([shortest, strchars(text)])
-  endfor
   if strchars(prefix) < 3 || strchars(prefix) * 2 < shortest
     return ''
   endif
