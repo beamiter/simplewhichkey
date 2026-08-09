@@ -18,6 +18,13 @@ All notable changes to SimpleWhichKey are documented here.
   boundary ran on past the end of the shorter name and threw it away. The end
   of a description is a boundary, and the name is now all of it.
 
+- `simplewhichkey#Describe()` with `{buffer}` rebuilds whichever of
+  `b:simplewhichkey_descriptions` and `b:simplewhichkey_groups` is missing.
+  It decided both had an entry for the mode by testing the first, so an
+  ftplugin that reset its own names by unletting one of them — the only way to
+  reset them, there being no buffer-scoped `Forget()` — got `E716` from the
+  next call.
+
 - A register being executed keeps its native speed to its last key. The
   Insert/command-line hook stood aside on `state('m')` alone, which reports
   keys that are still *queued* rather than where a key came from: a register

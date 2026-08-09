@@ -303,8 +303,14 @@ export def Describe(spec: dict<string>, mode: string = 'n', buffer: bool = false
     if type(get(b:, 'simplewhichkey_groups', 0)) != v:t_dict
       b:simplewhichkey_groups = {}
     endif
+    # Each dict answers for itself.  An ftplugin resetting its own names has
+    # nothing but |:unlet| to do it with, and it may well unlet one of the
+    # two: keying the second off the first would then write into a dict that
+    # has no entry for this mode.
     if !has_key(b:simplewhichkey_descriptions, mode)
       b:simplewhichkey_descriptions[mode] = {}
+    endif
+    if !has_key(b:simplewhichkey_groups, mode)
       b:simplewhichkey_groups[mode] = {}
     endif
   elseif !has_key(descriptions, mode)

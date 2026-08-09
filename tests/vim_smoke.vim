@@ -499,6 +499,29 @@ assert_equal('this buffer only', simplewhichkey#Keys('n', '<leader>').e.desc)
 unlet b:simplewhichkey_descriptions
 unlet b:simplewhichkey_groups
 
+# There is no buffer-scoped Forget(), so :unlet is how an ftplugin resets its
+# own names -- and it may unlet one of the two dicts and not the other.  The
+# next call must rebuild whichever is missing rather than throw.
+simplewhichkey#Describe({'<leader>e': 'this buffer only'}, 'n', true)
+unlet b:simplewhichkey_groups
+var describe_error = ''
+try
+  simplewhichkey#Describe({'<leader>f': '+here'}, 'n', true)
+catch
+  describe_error = v:exception
+endtry
+assert_equal('', describe_error,
+  'describing after one of the two buffer dicts was unlet must not throw')
+assert_equal('+here', simplewhichkey#Keys('n', '<leader>').f.desc,
+  'a group named after one dict was unlet must still land')
+unlet b:simplewhichkey_descriptions
+simplewhichkey#Describe({'<leader>e': 'back again'}, 'n', true)
+assert_equal('back again', simplewhichkey#Keys('n', '<leader>').e.desc)
+assert_equal('+here', simplewhichkey#Keys('n', '<leader>').f.desc,
+  'the dict that was left alone must keep its names')
+unlet b:simplewhichkey_descriptions
+unlet b:simplewhichkey_groups
+
 # ------------------------------------------------------------------ delay ---
 
 # One number still means the same wait everywhere.
