@@ -884,7 +884,7 @@ def ConfiguredDelay(mode: string, sequence: string): number
       continue
     endif
     var notation = key
-    var qualifies = key =~# '^[nxo]:'
+    var qualifies = key =~# '^[nxoic]:'
     if qualifies
       if key[0] !=# mode
         continue

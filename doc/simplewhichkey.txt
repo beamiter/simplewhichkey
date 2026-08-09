@@ -151,7 +151,11 @@ Two things keep the panel out of the way of typing:
       dropped.
 
 Remove the "i" and "c" entries from |g:simplewhichkey_prefixes| to turn this
-off, or give those prefixes their own wait through |g:simplewhichkey_delay|.
+off, or give those prefixes their own wait through |g:simplewhichkey_delay| >
+    let g:simplewhichkey_delay = {'default': 200, 'i:<C-r>': 120}
+<
+The "i:" and "c:" scopes matter here: CTRL-R is a prefix in both, and an
+unscoped '<C-r>' entry names it in both at once.
 
 ==============================================================================
 5. OPTIONS                                            *simplewhichkey-options*
@@ -185,16 +189,21 @@ Milliseconds to wait before drawing the panel, for prefixes Vim dispatches
 immediately.  Default 200.
 
 It may also be a dictionary, so prefixes that need different waits can have
-them.  Keys are prefix notation, optionally scoped to a mode with "n:", "x:"
-or "o:", plus "default" for everything not named: >
+them.  Keys are prefix notation, optionally scoped to a mode with "n:", "x:",
+"o:", "i:" or "c:", plus "default" for everything not named: >
     let g:simplewhichkey_delay = {
           \ 'default': 200,
           \ '<leader>': 0,
           \ 'i': 80,
           \ 'a': 80,
           \ 'o:g': 250,
+          \ 'i:<C-r>': 120,
+          \ 'c:<C-r>': 200,
           \ }
 <
+CTRL-R is a prefix in Insert mode and on the command line both, so those two
+scopes are the only way to give it different waits in the two.
+
 Lookup order is "mode:prefix", then "prefix", then "default".  Prefix keys are
 compared after termcode expansion, so "<leader>", "<Space>" and a literal " "
 name the same prefix.  |:SimpleWhichKeyHealth| prints the delay every hooked

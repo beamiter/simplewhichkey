@@ -6,6 +6,12 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Fixed
 
+- `g:simplewhichkey_delay` accepts `i:` and `c:` scopes. The table's mode
+  scopes were still matched against `n`, `x` and `o` only, so an `'i:<C-r>'`
+  or `'c:<C-r>'` entry was read as a prefix named `i:<C-r>`, matched nothing
+  and was silently dropped — and `<C-r>`, which is a prefix in Insert mode and
+  on the command line both, could not be given different waits in the two.
+
 - A register being executed keeps its native speed to its last key. The
   Insert/command-line hook stood aside on `state('m')` alone, which reports
   keys that are still *queued* rather than where a key came from: a register

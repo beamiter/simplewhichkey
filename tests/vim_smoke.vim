@@ -512,6 +512,22 @@ assert_equal(40, simplewhichkey#ResolvedDelay('o', 'i'))
 # A mode-qualified entry says nothing about the other modes.
 assert_equal(80, simplewhichkey#ResolvedDelay('n', 'i'))
 
+# Insert mode and the command line share a prefix and want different waits,
+# so they scope like the others.
+g:simplewhichkey_delay = {
+  default: 200,
+  '<C-r>': 90,
+  'i:<C-r>': 30,
+  'c:<C-r>': 60,
+  'i:<C-x>': 50,
+}
+assert_equal(30, simplewhichkey#ResolvedDelay('i', '<C-r>'))
+assert_equal(60, simplewhichkey#ResolvedDelay('c', '<C-r>'))
+assert_equal(50, simplewhichkey#ResolvedDelay('i', '<C-x>'))
+# The unscoped entry still answers for the mode nobody scoped.
+assert_equal(90, simplewhichkey#ResolvedDelay('n', '<C-r>'))
+assert_equal(200, simplewhichkey#ResolvedDelay('c', '<C-x>'))
+
 # Garbage never reaches the panel loop as a wait.
 g:simplewhichkey_delay = 'nope'
 assert_equal(200, simplewhichkey#ResolvedDelay('n', 'g'))

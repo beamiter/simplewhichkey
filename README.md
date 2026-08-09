@@ -125,8 +125,13 @@ let g:simplewhichkey_delay = {
       \ 'default': 200,
       \ '<leader>': 0,
       \ 'o:g': 250,
+      \ 'i:<C-r>': 120,
       \ }
 ```
+
+The mode scopes are `n:`, `x:`, `o:`, `i:` and `c:`. `<C-r>` is a prefix in
+Insert mode and on the command line both, so those last two scopes are the
+only way to give it different waits in the two.
 
 `:SimpleWhichKeyHealth` prints the delay every hooked prefix resolves to.
 
