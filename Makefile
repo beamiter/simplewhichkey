@@ -3,18 +3,22 @@
 # The full gate, in the order that fails fastest.
 check: defcompile test-vim test-scale test-keys
 
+# -i NONE everywhere: the register tests read what is actually in the
+# registers, and without it a |viminfo-file| both seeds them from the machine
+# running the suite and writes the fixtures back out to it.
+#
 # Compile every :def function so type errors surface without pressing a key.
 defcompile:
-	vim -N -u NONE -n -es -S tests/defcompile.vim
+	vim -N -u NONE -n -i NONE -es -S tests/defcompile.vim
 
 test-vim:
-	vim -N -u NONE -n -es -S tests/vim_smoke.vim
+	vim -N -u NONE -n -i NONE -es -S tests/vim_smoke.vim
 
 # What a panel costs is sweeps of the mapping table times mappings in it, so
 # the budget is expressed in sweeps rather than in seconds a loaded machine
 # can invent.
 test-scale:
-	vim -N -u NONE -n -es -S tests/vim_scale.vim
+	vim -N -u NONE -n -i NONE -es -S tests/vim_scale.vim
 
 # Real keystrokes need a pty.
 test-keys:

@@ -141,7 +141,7 @@ Two things keep the panel out of the way of typing:
       |feedkeys()| -- because those keys will answer the panel themselves.
 
       What Vim reports through |state()| is queued keys, not where a key came
-      from, so a mapping or a |feedkeys()| whose *last* key is the prefix
+      from, so a mapping or a |feedkeys()| whose last key is the prefix
       looks exactly like a person who just pressed it, and there the panel
       does open.  Vim's own CTRL-R and CTRL-X wait for the next key in that
       position either way; the panel adds |g:simplewhichkey_delay| and a list
@@ -472,6 +472,15 @@ simplewhichkey#Sweeps()                              *simplewhichkey#Sweeps()*
         |:SimpleWhichKeyHealth| and one |simplewhichkey#Keys()| are one read
         each, however many levels or groups they touch.
 
+simplewhichkey#Iterations()                      *simplewhichkey#Iterations()*
+        How many mapping entries have been looked at since Vim started.
+        |simplewhichkey#Sweeps()| counts how often the table was copied; this
+        counts how much of it was read, and the two answer different
+        questions.  A read inside an open snapshot costs no sweep at all, so
+        this is the number that still moves when work is repeated behind one:
+        one panel level reads every mapping twice, once for the global
+        mappings and once for the buffer-local ones.
+
 simplewhichkey#Conflicts([{mode}])                *simplewhichkey#Conflicts()*
         Every pair {short, long} of your mappings where the long one continues
         the short one, as |keytrans()| labels.  The short one waits a full
@@ -504,7 +513,7 @@ simplewhichkey#Orphans([{mode}])                    *simplewhichkey#Orphans()*
 - |:normal| without "!" in a script goes through the replay, so those keys run
   after the :normal command finishes rather than inside it.  Script code should
   use :normal! anyway.
-- A mapping or a |feedkeys()| whose *last* key is CTRL-R or CTRL-X does open
+- A mapping or a |feedkeys()| whose last key is CTRL-R or CTRL-X does open
   the panel: |state()| reports keys that are still queued, not where a key
   came from, so that case is indistinguishable from a person pressing the key.
   Executing a register is the exception Vim does report.  See

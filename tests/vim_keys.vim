@@ -652,11 +652,18 @@ var steps = [
   () => {
     assert_true(PanelVisible(), 'overflow panel after z')
     assert_match('\[1/[2-9][0-9]* PgUp/PgDn\]', PanelTitle())
+    # Turning a page does not move the sequence, so what may follow it cannot
+    # have changed.  Rebuilding the level here read every mapping in the
+    # editor again, once per page turn, with the panel already on screen --
+    # and the snapshot made that free of sweeps but not of time.
+    g:paged_iterations = simplewhichkey#Iterations()
     Type("\<PageDown>")
   },
   () => {
     assert_match('\[2/[2-9][0-9]* PgUp/PgDn\]', PanelTitle(),
       'PageDown did not redraw the next page')
+    assert_equal(g:paged_iterations, simplewhichkey#Iterations(),
+      'turning a page read the mapping table again')
     Type("\<PageUp>")
   },
   () => {
@@ -684,6 +691,11 @@ var steps = [
   },
   () => {
     assert_equal('<Space> T', PanelTitle(), 'entered the nested group')
+    # The other half of the same rule: a key that does move the sequence has
+    # to rebuild, or the panel would draw the parent's entries under the
+    # child's title.
+    assert_match('nested-page', PanelText(),
+      'the nested level was drawn from the parent level')
     Type("\<BS>")
   },
   () => {

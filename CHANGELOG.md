@@ -6,6 +6,53 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Fixed
 
+- The register panel no longer reads whole registers to show thirty
+  characters of them. `"` lists every register that has anything in it, and
+  each preview ran three `substitute()` passes over the entire body before
+  cutting it down: with seven registers holding 132 KB apiece, one `"` cost
+  48 ms of regexp to produce 30 characters per register. The cut happens
+  first now, and it counts composed characters, so a base character is never
+  separated from its combining marks — the regexp engine replaces the two
+  together, and cutting between them would have shortened the preview and
+  dropped the ellipsis that says there is more.
+
+  Cutting first only moved the cost, though: the register still had to be
+  joined into one string to be handed over, so a multi-line register was
+  copied in full to produce thirty characters of it. Seven registers of
+  60 000 lines cost 74 ms that way. The head is now taken a line at a time
+  and stops at the first line that crosses the width, so the same panel
+  costs 7 ms — the rest of which is Vim building the register list itself.
+  The same bytes come out as before for every register, and `test-scale`
+  budgets what a panel is allowed to take out of the registers so that
+  neither half of this can come back.
+
+- A multi-line register previews with the `⏎` glyph it was always meant to
+  have. The lines were joined with a single-quoted `'\n'`, which is a
+  backslash and an "n", so a two-line register read as `first\nsecond`; and
+  because no newline ever reached the preview, the pass that draws the glyph —
+  and the control-character pass behind it — had nothing to match for any
+  register at all.
+
+- Taking the prefixes and giving them back reads the mapping table once per
+  phase instead of once per prefix. `Setup()` asked `maplist()` about each of
+  the 30 default prefixes twice over, 60 full copies of every mapping in the
+  editor — and `Setup()` is not only startup: `:SimpleWhichKeyRefresh` runs
+  it, and every panel the user dismisses ends in a `Restore()` that
+  reinstalls the hooks of the modes it suspended. At 531 mappings that was
+  49 ms per refresh and 15 ms per dismissed panel; both phases now take one
+  sweep each, for 18 ms and 8 ms. One snapshot is safe across a phase because
+  every pass asks about one prefix and writes at most that same prefix.
+
+- Turning a page of an overflowing panel no longer rebuilds the level. Paging,
+  scrolling and stray mouse events do not move the key sequence, so what may
+  follow it cannot have changed, but the panel loop rebuilt it on every pass —
+  a read of every mapping in the editor for each page turn, with the panel
+  already on screen. The snapshot had made that free of *sweeps* without
+  making it any cheaper, which is also why `simplewhichkey#Iterations()` now
+  exists next to `simplewhichkey#Sweeps()`: a sweep is the copy, an iteration
+  is the read, and `test-scale` budgets both, plus the bytes of register text
+  a `"` panel is allowed to touch.
+
 - `g:simplewhichkey_delay` accepts `i:` and `c:` scopes. The table's mode
   scopes were still matched against `n`, `x` and `o` only, so an `'i:<C-r>'`
   or `'c:<C-r>'` entry was read as a prefix named `i:<C-r>`, matched nothing

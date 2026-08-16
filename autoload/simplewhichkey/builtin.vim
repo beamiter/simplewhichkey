@@ -450,8 +450,42 @@ enddef
 # Providers for prefixes whose contents only exist at runtime.
 # ---------------------------------------------------------------------------
 
+# Bytes of register text the previews have taken out of the registers since
+# Vim started.  What a register panel costs is this number, and the panel can
+# only ever draw thirty characters of each register, so any answer that grows
+# with what is stored in them is the bug this counts.  Counted where the text
+# is taken rather than where it is flattened, because the two were separate
+# regressions: the flattening ran over whole registers, and then the taking
+# did.
+var scanned = 0
+
+export def Scanned(): number
+  return scanned
+enddef
+
+# Thirty characters of a register, with the parts that cannot be drawn on one
+# line replaced.
+#
+# The head is cut off before the replacements rather than after, because the
+# rest of the register can be a yanked file: three regexps over megabytes, for
+# every one of the ~48 registers, ran on every '"' the user pressed.
+#
+# The cut counts composed characters -- the trailing 1 -- and not the way
+# |strchars()| counts by default, because a replacement is one character for
+# one character only until a combining mark is involved.  A tab carrying a
+# U+0301 is two characters to strcharpart() and one to the regexp engine, which
+# matches the base together with its marks: [[:cntrl:]] turns the pair into a
+# single '.'.  Cutting between the tab and its mark therefore left a bare tab
+# that matched '\t' instead, and the head shrank to fewer characters than it
+# was asked for -- a register of forty such pairs previewed as sixteen
+# characters with no ellipsis, when the whole of it flattens to forty and the
+# ellipsis is the only thing saying there is more.  Cutting on composed
+# boundaries keeps the promise the fast path needs: the head flattens to a
+# prefix of what the whole register flattens to, and to at least width + 1
+# characters of it, which is what decides the ellipsis.
 def Preview(text: string, width: number): string
-  var flat = substitute(text, '\n', '⏎', 'g')
+  var head = strcharpart(text, 0, width + 1, 1)
+  var flat = substitute(head, '\n', '⏎', 'g')
   flat = substitute(flat, '\t', ' ', 'g')
   flat = substitute(flat, '[[:cntrl:]]', '.', 'g')
   if strchars(flat) > width
@@ -460,15 +494,59 @@ def Preview(text: string, width: number): string
   return flat
 enddef
 
+# The leading `width` composed characters of what the lines flatten to, and no
+# more of them.
+#
+# Preview() cutting first is only half the saving: joining the whole register
+# to hand it over rebuilds every byte of it anyway, which is a megabyte copied
+# per yanked file, for each of the ~48 registers, to produce thirty characters.
+# Measured with seven 150 KB registers, the join alone was 5.7 ms of a 10.5 ms
+# panel after the regexps had already been dealt with.
+#
+# The count is in composed characters, for the reason Preview() explains: the
+# regexp engine replaces a base character together with its marks, so a head
+# measured any other way can flatten to fewer characters than it promised and
+# lose the ellipsis.  One extra character is taken beyond `width` because that
+# is what tells Preview() there is more to come.
+def Head(lines: list<string>, width: number): string
+  var head: list<string> = []
+  for line in lines
+    # No one line is ever needed beyond `width` characters of it, so the
+    # megabyte a yanked file puts on its first line is cut here rather than
+    # copied and then thrown away.
+    add(head, strcharpart(line, 0, width + 1, 1))
+    # Measured on what the pieces join to rather than on the sum of their
+    # lengths, because the two differ: a line beginning with a combining mark
+    # loses that mark into the newline in front of it, so the sum can promise
+    # a character the join does not deliver -- and a head one character short
+    # is a preview that drops the ellipsis saying there is more.  Both the
+    # pieces and their number are bounded by `width`, so this stays a few
+    # hundred characters of work however large the register is.
+    if strchars(join(head, "\n"), 1) > width
+      break
+    endif
+  endfor
+  var text = join(head, "\n")
+  scanned += strlen(text)
+  return text
+enddef
+
 def Registers(): dict<string>
   var out: dict<string> = {}
   for name in split('"0123456789-abcdefghijklmnopqrstuvwxyz.:%#=*+~/', '\zs')
-    var info = getreginfo(name)
-    var body = join(get(info, 'regcontents', []), '\n')
-    if empty(body)
+    var contents = get(getreginfo(name), 'regcontents', [])
+    # What `join(contents, "\n")` used to be tested for, decided without
+    # building it: only a register with no lines at all, or exactly one empty
+    # one, flattens to nothing.  A register of blank lines does not, and it
+    # previewed as a row of newline glyphs before this, so it still must.
+    if empty(contents) || (len(contents) == 1 && empty(contents[0]))
       continue
     endif
-    out[name] = Preview(body, 30)
+    # A double quoted "\n" is a newline; the single quoted form is a backslash
+    # followed by an n, which is what a multi-line register used to preview as
+    # -- and it also meant Preview()'s newline pass had nothing to match, so
+    # the glyph it exists to draw never appeared.
+    out[name] = Preview(Head(contents, 30), 30)
   endfor
   return out
 enddef

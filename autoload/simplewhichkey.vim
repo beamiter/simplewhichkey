@@ -66,6 +66,12 @@ var restore_timer = -1
 var snapshot: list<dict<any>> = []
 var snapshot_depth = 0
 var sweeps = 0
+# A sweep is the copy; an iteration is the read.  A snapshot removes the copy
+# and leaves the read, so a sweep budget alone falls silent the moment a
+# snapshot is opened around a loop that still walks every mapping once per
+# prefix -- which is precisely the shape this plugin keeps growing back.  Both
+# numbers are counted so a test can see either regression.
+var iterations = 0
 
 def OpenSnapshot()
   if snapshot_depth == 0
@@ -96,6 +102,13 @@ enddef
 # this number multiplied by how many mappings you have.
 export def Sweeps(): number
   return sweeps
+enddef
+
+# How many mapping entries have been looked at since Vim started.  Sweeps()
+# says how often the table was copied, this says how much of it was read, and
+# only the second number moves when a snapshot hides a per-prefix scan.
+export def Iterations(): number
+  return iterations
 enddef
 
 def Notify(message: string)
@@ -457,6 +470,7 @@ def CollectMappings(level: dict<any>, mode: string, sequence: string)
   # overwriting in that order is what makes it win here too.
   for buffer_local in [0, 1]
     for entry in Mappings()
+      iterations += 1
       if get(entry, 'abbr', 0) || get(entry, 'buffer', 0) != buffer_local
         continue
       endif
@@ -631,6 +645,7 @@ enddef
 def GlobalMapping(lhs: string, mode: string): dict<any>
   var wanted = simplewhichkey#keys#Termcodes(lhs)
   for entry in Mappings()
+    iterations += 1
     if get(entry, 'abbr', 0) || get(entry, 'buffer', 0)
           \ || !ModeMatches(get(entry, 'mode', ''), mode)
       continue
@@ -651,7 +666,22 @@ def Available(lhs: string, mode: string): bool
   return empty(entry) || get(entry, 'rhs', '') =~# HOOK_MARKER
 enddef
 
+# Installing and removing hooks changes the mapping table, so at first sight a
+# snapshot has no business being held across either loop.  It is safe for the
+# reason the loops are shaped the way they are: every iteration asks about one
+# lhs and writes at most that same lhs, and Setup() has already made the
+# prefixes of a mode unique.  The snapshot is therefore only ever consulted for
+# prefixes nothing has touched yet, and those the mutations cannot reach --
+# neither the mode split Vim performs when :nnoremap lands on top of a :map,
+# nor a buffer-local mapping, changes another prefix's global slot.
+#
+# Without it a default configuration paid 30 full maplist() copies per phase:
+# 60 for Setup(), and Setup() is not only startup -- it is also what
+# :SimpleWhichKeyRefresh runs, and Restore() reinstalls a mode's hooks after
+# every panel the user dismisses.
 def InstallHooks(only_mode: string = '')
+  OpenSnapshot()
+  defer CloseSnapshot()
   for [mode, prefixes] in items(hooks)
     if only_mode !=# '' && mode !=# only_mode
       continue
@@ -678,6 +708,8 @@ def InstallHooks(only_mode: string = '')
 enddef
 
 def RemoveHooks(only_mode: string = '')
+  OpenSnapshot()
+  defer CloseSnapshot()
   for [mode, prefixes] in items(hooks)
     if only_mode !=# '' && mode !=# only_mode
       continue
@@ -856,17 +888,23 @@ enddef
 # Vim waits 'timeoutlen' by itself when other mappings extend the prefix, so by
 # the time Start() runs the user has already paused.  Waiting again would only
 # add lag; the extra delay is for prefixes Vim dispatches immediately.
+#
+# This runs before the panel is drawn, on the keystroke the user just pressed,
+# and it walks the whole mapping table whenever the answer is no -- which is
+# the answer for most of Vim's own prefixes.  So the tests are ordered the way
+# CollectMappings() orders them: the byte comparison that rules an entry out
+# first, and the HOOK_MARKER regexp only for the few entries that survive it.
 def Ambiguous(mode: string, sequence: string): bool
   for entry in Mappings()
+    iterations += 1
     if get(entry, 'abbr', 0) || !ModeMatches(get(entry, 'mode', ''), mode)
       continue
     endif
-    if get(entry, 'rhs', '') =~# HOOK_MARKER
+    if empty(MatchingLhs(entry, sequence))
+          \ || get(entry, 'rhs', '') =~# HOOK_MARKER
       continue
     endif
-    if !empty(MatchingLhs(entry, sequence))
-      return true
-    endif
+    return true
   endfor
   return false
 enddef
@@ -940,8 +978,18 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
   var aborted = false
 
   try
+    # What may follow the sequence can only change when the sequence does.
+    # Rebuilding it once per pass meant a scroll wheel tick, a page key or a
+    # stray mouse event -- none of which moves the sequence -- read every
+    # mapping in the editor again while the panel just sat there.  The
+    # snapshot hid that from the sweep count without making it any cheaper.
+    var level = Level(mode, sequence)
+    var built = sequence
     while true
-      var level = Level(mode, sequence)
+      if built !=# sequence
+        level = Level(mode, sequence)
+        built = sequence
+      endif
       if empty(level)
         break
       endif
@@ -1326,6 +1374,7 @@ enddef
 def UserMappings(mode: string): list<string>
   var seen: dict<bool> = {}
   for entry in Mappings()
+    iterations += 1
     if get(entry, 'abbr', 0) || !ModeMatches(get(entry, 'mode', ''), mode)
       continue
     endif
@@ -1445,6 +1494,7 @@ enddef
 def CountMappings(mode: string, sequence: string): number
   var total = 0
   for entry in Mappings()
+    iterations += 1
     if get(entry, 'abbr', 0) || !ModeMatches(get(entry, 'mode', ''), mode)
       continue
     endif

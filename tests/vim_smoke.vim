@@ -770,6 +770,64 @@ cclose
 call setqflist([], 'r')
 simplewhichkey#Forget()
 
+# ------------------------------------------------------- register previews ---
+
+# Thirty characters, then an ellipsis in the thirtieth position.
+setreg('p', repeat('x', 30))
+assert_equal(repeat('x', 30), simplewhichkey#Keys('n', '"').p.desc)
+setreg('p', repeat('x', 31))
+assert_equal(repeat('x', 29) .. '…', simplewhichkey#Keys('n', '"').p.desc)
+
+# A two-line register shows the newline glyph.  Joining the lines with a
+# single-quoted '\n' put a backslash and an n in the preview instead, and left
+# the pass that draws the glyph with nothing to match -- so both the glyph and
+# the control-character pass behind it were dead for every register.
+setreg('p', ['first', 'second'], 'V')
+var multiline = simplewhichkey#Keys('n', '"').p.desc
+assert_equal('first⏎second', multiline)
+assert_false(multiline =~# '\\n',
+  'a literal backslash-n must not reach a register preview')
+
+# Tabs and control characters cannot go on a panel row either.
+setreg('p', "a\tb\<C-a>c")
+assert_equal('a b.c', simplewhichkey#Keys('n', '"').p.desc)
+
+# The preview reads only as much of the register as it can show, and cutting
+# first has to be exact rather than approximate.  The oracle for that is the
+# slow way round -- flatten the whole register, then cut -- written out here so
+# that the test cannot be satisfied by cutting the same wrong way twice.
+def Flattened(text: string, width: number): string
+  var flat = substitute(text, '\n', '⏎', 'g')
+  flat = substitute(flat, '\t', ' ', 'g')
+  flat = substitute(flat, '[[:cntrl:]]', '.', 'g')
+  return strchars(flat) > width
+    ? strcharpart(flat, 0, width - 1) .. '…'
+    : flat
+enddef
+
+def AssertPreview(text: string, message: string)
+  setreg('p', text)
+  # The same lines the provider flattens, so what is compared is the cut and
+  # nothing about how a register reports its own type.
+  assert_equal(Flattened(join(getreginfo('p').regcontents, "\n"), 30),
+    simplewhichkey#Keys('n', '"').p.desc, message)
+enddef
+
+AssertPreview(repeat("a\tb⏎日\<C-a>x", 5000), 'a register of megabytes')
+
+# A combining mark on a character that gets replaced is why the cut counts
+# composed characters.  The regexp engine matches a base together with its
+# marks, so a tab carrying a U+0301 flattens to one '.', while a cut that
+# counts marks separately splits the pair and leaves a bare tab -- which
+# matched '\t' instead and made the head shorter than it was asked for.  Forty
+# such pairs previewed as sixteen characters and no ellipsis, so a register
+# with more in it than fits looked complete.
+AssertPreview(repeat("\t́", 40), 'a tab carrying a combining mark')
+AssertPreview(repeat("x\ńy", 20), 'a line starting with a combining mark')
+AssertPreview(repeat("\<C-a>́", 40), 'a control character carrying a mark')
+AssertPreview('é' .. repeat("á̂̃", 40), 'combining marks on ordinary characters')
+setreg('p', '')
+
 if !empty(v:errors)
   for error in v:errors
     echomsg error
