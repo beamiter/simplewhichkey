@@ -361,6 +361,13 @@ those and nothing about the keys you will put on them; see
 |simplewhichkey-plugins|.  Any right hand side may be named this way, not only
 a <Plug>: ':Files<CR>' works too.  An empty description drops the entry.
 
+A right hand side written with "<Leader>" or "<LocalLeader>" is stored under
+the leader in force when you register it -- Vim itself leaves those words
+alone on the right hand side, so the panel reads them with the leader in
+force when it draws.  Change 'mapleader' and such a name must be registered
+again, like the prefixes (|:SimpleWhichKeyRefresh|); the panel never answers
+with the leader of an earlier lookup.
+
 The three registries stack in the order of how much each knows about the
 buffer: a buffer name wins over a global name for the keys, which wins over a
 name for the target, which wins over anything derived.  A group nobody named

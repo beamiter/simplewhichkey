@@ -225,6 +225,13 @@ description drops the entry. The registries stack by how much each knows: a
 buffer name beats a global name for the keys, which beats a name for the
 target, which beats anything derived.
 
+A right hand side written with `<Leader>` or `<LocalLeader>` is stored under
+the leader in force when you register it — Vim leaves those words alone on the
+right hand side, so the panel reads them with the leader in force when it
+draws. Change `mapleader` and such a name has to be registered again, as the
+prefixes do (`:SimpleWhichKeyRefresh`); the panel never answers with the leader
+of an earlier lookup.
+
 Most of the time you should not need any of this. A mapping onto one of Vim's
 own commands takes that command's name — `<leader>w=` mapped to `<C-w>=` reads
 as `equalize-sizes`, an `omap` onto `iw` as `inner-word` — and a group nobody

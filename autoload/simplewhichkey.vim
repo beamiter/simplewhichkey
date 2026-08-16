@@ -37,6 +37,11 @@ const ESCAPE_KEY = "\<Esc>"
 const INTERRUPT_KEY = "\<C-c>"
 const BACKSPACE_KEY = "\<BS>"
 const IGNORE_KEY = "\<Ignore>"
+# The one thing in a right hand side whose meaning is not the text itself:
+# '<Leader>' and '<LocalLeader>' stand for whatever g:mapleader and
+# g:maplocalleader hold when the rhs is read, so such a right hand side has no
+# canonical form that may be remembered across a change of either.
+const LEADER_PATTERN = '\c<\%(local\)\?leader>'
 
 # mode -> hooked prefixes, in Vim's canonical notation.
 var hooks: dict<list<string>> = {}
@@ -50,6 +55,10 @@ var plug_descriptions: dict<string> = {}
 # Raw rhs as maplist() reports it -> its canonical form.  A miss in the plug
 # registry is the common case and has to be proven for every mapping of a
 # level, so the proof is remembered rather than repeated on each keystroke.
+# Only a right hand side whose canonical form is a pure function of its text
+# belongs here; see LEADER_PATTERN and PlugDescription().  Setup() and
+# Forget() empty it, so :SimpleWhichKeyRefresh is a way out of anything a
+# future non-pure input might strand here.
 var plug_keys: dict<string> = {}
 
 var active = false
@@ -229,6 +238,14 @@ def PlugDescription(entry: dict<any>): string
   var rhs = get(entry, 'rhs', '')
   if empty(rhs)
     return ''
+  endif
+  # A right hand side spelt with <Leader> canonicalises through the leader of
+  # the moment, so remembering its key would answer the next question with the
+  # previous leader -- and the answer would outlive the
+  # :SimpleWhichKeyRefresh the help prescribes for exactly that change.  It is
+  # the only input that is not its own proof, so it is the only one recomputed.
+  if rhs =~# LEADER_PATTERN
+    return get(plug_descriptions, PlugKey(rhs), '')
   endif
   var key = get(plug_keys, rhs, '')
   if empty(key)
@@ -420,6 +437,7 @@ export def Forget()
   descriptions = {}
   group_names = {}
   plug_descriptions = {}
+  plug_keys = {}
 enddef
 
 # ---------------------------------------------------------------------------
@@ -808,6 +826,9 @@ export def Setup()
   endif
   RemoveHooks()
   hooks = {}
+  # The prefixes are read through the leader, so this is the call that runs
+  # after 'mapleader' changed; nothing canonical from before it is trusted.
+  plug_keys = {}
   for [mode, prefixes] in items(configured)
     if index(['n', 'x', 'o', 'i', 'c'], mode) < 0 || type(prefixes) != v:t_list
       continue

@@ -711,6 +711,63 @@ nunmap <Plug>(simpleremote-open)
 nunmap <Plug>(simpleremote-connect)
 nunmap <Plug>(simpleremote-status)
 
+# A right hand side spelt with <Leader> is the one whose canonical form is not
+# the text itself: Vim leaves '<leader>' in a right hand side alone, so
+# maplist() reports it literally and the plugin expands it with the leader of
+# the moment.  Both sides of the lookup have to move together when the leader
+# does, or a name registered under the new leader is answered with the key
+# that was canonical under the old one.
+const saved_leader = g:mapleader
+const saved_localleader = g:maplocalleader
+nmap gQ <leader>Q
+nmap gW <localleader>W
+simplewhichkey#DescribePlug({
+  '<leader>Q': 'under space',
+  '<localleader>W': 'local under comma',
+})
+assert_equal('under space', simplewhichkey#Keys('n', 'g').Q.desc)
+assert_equal('local under comma', simplewhichkey#Keys('n', 'g').W.desc)
+
+# No refresh, nothing else touched: only the leader changed, and the name
+# registered under it must be the one that answers.
+g:mapleader = '-'
+g:maplocalleader = '+'
+simplewhichkey#DescribePlug({
+  '<leader>Q': 'under dash',
+  '<localleader>W': 'local under plus',
+})
+assert_equal('under dash', simplewhichkey#Keys('n', 'g').Q.desc,
+  'a name by target must follow g:mapleader, not the leader of the first lookup')
+assert_equal('local under plus', simplewhichkey#Keys('n', 'g').W.desc,
+  'g:maplocalleader must move the lookup the same way')
+
+# The same through the door the help sends people to for exactly this change.
+g:mapleader = '='
+simplewhichkey#Setup()
+assert_match('simplewhichkey#Start', maparg('=', 'n'), 'the refresh took the new leader')
+simplewhichkey#DescribePlug({'<leader>Q': 'under equals'})
+assert_equal('under equals', simplewhichkey#Keys('n', 'g').Q.desc,
+  ':SimpleWhichKeyRefresh must not leave the old leader answering')
+
+# Forget() drops the names; what is registered afterwards is what is read,
+# rather than the derived text a stale key would fall back to.
+simplewhichkey#Forget()
+assert_equal('<leader>Q', simplewhichkey#Keys('n', 'g').Q.desc,
+  'with nothing registered the right hand side names itself')
+simplewhichkey#DescribePlug({'<leader>Q': 'after forget'})
+assert_equal('after forget', simplewhichkey#Keys('n', 'g').Q.desc,
+  'Forget() must not strand the key a later registration is found by')
+
+g:mapleader = saved_leader
+g:maplocalleader = saved_localleader
+simplewhichkey#Setup()
+assert_match('simplewhichkey#Start', maparg('<Space>', 'n'),
+  'the original leader is hooked again')
+assert_equal('', maparg('=', 'n'), 'the borrowed leader gave its key back')
+simplewhichkey#Forget()
+nunmap gQ
+nunmap gW
+
 # ------------------------------------------------------------------ delay ---
 
 # One number still means the same wait everywhere.

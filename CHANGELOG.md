@@ -19,7 +19,13 @@ All notable changes to SimpleWhichKey are documented here.
   both, and a group nobody named is still named after what its keys point at,
   so mappings onto `<Plug>(simpleremote-*)` stay `+simpleremote` whatever each
   was named. `:SimpleWhichKeyHealth` counts them next to the other
-  descriptions.
+  descriptions. A right hand side spelt with `<Leader>` or `<LocalLeader>` is
+  the one whose canonical form is not the text itself — Vim leaves those words
+  alone on a right hand side, so the plugin expands them with the leader of the
+  moment. Such a name is stored under the leader in force when it is registered
+  and read with the leader in force when the panel draws; changing `mapleader`
+  and registering it again therefore takes effect, and no name from before the
+  change answers afterwards.
 
 - The help and README say what another plugin's buffer gets for free and how
   it names it: buffer-local mappings are listed in their buffer with a derived
