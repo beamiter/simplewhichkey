@@ -4,6 +4,33 @@ All notable changes to SimpleWhichKey are documented here.
 
 ## Unreleased - 2026-08-07
 
+### Added
+
+- `simplewhichkey#DescribePlug()` names what a mapping does rather than the
+  keys that do it: `{'<Plug>(simpleremote-open)': 'remote workspaces'}`, and
+  every mapping onto that target — in any mode, under any prefix, however
+  `<Plug>` was spelt — reads as the name in the panel. Descriptions were keyed
+  by key sequence only, so a plugin, which knows its `<Plug>` targets and
+  nothing about the keys a user puts on them, had no way to name its own
+  mappings; the panel showed `simpleremote-open` derived from the right hand
+  side. Any right hand side may be named this way, an empty description drops
+  the entry, and `Forget()` clears these along with the other global names.
+  A name for the keys themselves (`Describe()`) still wins, a buffer name over
+  both, and a group nobody named is still named after what its keys point at,
+  so mappings onto `<Plug>(simpleremote-*)` stay `+simpleremote` whatever each
+  was named. `:SimpleWhichKeyHealth` counts them next to the other
+  descriptions.
+
+- The help and README say what another plugin's buffer gets for free and how
+  it names it: buffer-local mappings are listed in their buffer with a derived
+  description, and `simplewhichkey#Describe(..., 'n', v:true)` while that
+  buffer is current names them — the shape SimpleRemote's tree buffer uses for
+  `gs`, `gm`, `gM`, `gy`, `gd`, `gu`, `]f`, `[f`, `]b` and `[b`. The tests
+  now cover exactly that shape: the names show under `g`, `]` and `[` in that
+  buffer only, a key chosen from the real panel runs the buffer-local mapping,
+  the built-in `gs`/`]f` come back outside the buffer, and the names die with
+  it.
+
 ### Fixed
 
 - The register panel no longer reads whole registers to show thirty

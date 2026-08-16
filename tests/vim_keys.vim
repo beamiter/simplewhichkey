@@ -920,6 +920,74 @@ var steps = [
     PutLines(['one', 'two', 'three', 'four'])
   },
 
+  # --- names another plugin registers on its own buffer --------------------
+  # simpleremote's tree buffer installs <silent><buffer> mappings on g and ]
+  # and names them with Describe(..., 'n', true) while that buffer is current.
+  # The panel over that buffer draws those names, and choosing one runs the
+  # buffer-local mapping with its <Cmd> semantics intact.
+  () => {
+    new
+    setlocal buftype=nofile bufhidden=wipe
+    g:hit = ''
+    nnoremap <silent><buffer> gs <Cmd>let g:hit = 'tree-sort'<CR>
+    nnoremap <silent><buffer> ]f <Cmd>let g:hit = 'tree-find'<CR>
+    simplewhichkey#Describe({gs: 'reverse sort', ']f': 'next find match'},
+      'n', true)
+    Type('g')
+  },
+  () => {
+    assert_true(PanelVisible(), 'panel after g in the tree buffer')
+    assert_match('reverse sort', PanelText(),
+      'the name registered on the buffer is what the panel draws')
+    assert_notmatch("let g:hit", PanelText(),
+      'the derived text must not show next to the registered name')
+    Type('s')
+  },
+  () => {
+    assert_false(PanelVisible(), 'choosing a buffer-local mapping closes the panel')
+    assert_equal('tree-sort', g:hit,
+      'the buffer-local mapping chosen from the panel ran in its buffer')
+    Type(']')
+  },
+  () => {
+    assert_true(PanelVisible(), 'panel after ] in the tree buffer')
+    assert_match('next find match', PanelText())
+    Type('f')
+  },
+  () => {
+    assert_equal('tree-find', g:hit)
+    close
+    assert_true(WaitFor(() => Hooked()))
+  },
+
+  # --- a name registered for a <Plug> target, whatever keys point at it ----
+  () => {
+    g:hit = ''
+    nnoremap <silent> <Plug>(simpleremote-open) <Cmd>let g:hit = 'plug-open'<CR>
+    nmap <leader>ro <Plug>(simpleremote-open)
+    simplewhichkey#DescribePlug({'<Plug>(simpleremote-open)': 'remote workspaces'})
+    Type(' ')
+  },
+  () => {
+    assert_true(PanelVisible(), 'panel after leader')
+    Type('r')
+  },
+  () => {
+    assert_equal('<Space> r', PanelTitle(), 'descended into the remote group')
+    assert_match('remote workspaces', PanelText(),
+      'the name registered for the target is what the panel draws')
+    assert_notmatch('simpleremote-open', PanelText(),
+      'the derived text must not show next to the registered name')
+    Type('o')
+  },
+  () => {
+    assert_equal('plug-open', g:hit, 'the <Plug> mapping ran')
+    nunmap <leader>ro
+    nunmap <Plug>(simpleremote-open)
+    simplewhichkey#DescribePlug({'<Plug>(simpleremote-open)': ''})
+    assert_true(WaitFor(() => Hooked()))
+  },
+
   # --- disabled means out of the way --------------------------------------
   () => {
     simplewhichkey#Disable()

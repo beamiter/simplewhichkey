@@ -555,6 +555,162 @@ assert_equal('+here', simplewhichkey#Keys('n', '<leader>').f.desc,
 unlet b:simplewhichkey_descriptions
 unlet b:simplewhichkey_groups
 
+# A plugin that installs its own <buffer> mappings names them the same way,
+# and it does so from inside its own code rather than from an ftplugin: this
+# is the shape simpleremote's tree buffer takes -- `nnoremap <silent><buffer>`
+# onto its functions plus a Describe(..., 'n', true) while that buffer is
+# current.  Two of its keys sit on prefixes the panel hooks globally (g, ]),
+# and three more (z, ', <Space>) shadow whole hooked prefixes.
+new
+var tree_buf = bufnr()
+setlocal buftype=nofile bufhidden=hide
+nnoremap <silent><buffer> gs <Cmd>call g:SimpleRemoteTreeSortReverse()<CR>
+nnoremap <silent><buffer> gm <Cmd>call g:SimpleRemoteTreeMarkSiblings()<CR>
+nnoremap <silent><buffer> gM <Cmd>call g:SimpleRemoteTreeMarkClear()<CR>
+nnoremap <silent><buffer> gy <Cmd>call g:SimpleRemoteTreeCopyContents()<CR>
+nnoremap <silent><buffer> gd <Cmd>call g:SimpleRemoteTreeCopyOut()<CR>
+nnoremap <silent><buffer> gu <Cmd>call g:SimpleRemoteTreeUpload()<CR>
+nnoremap <silent><buffer> ]f <Cmd>call g:SimpleRemoteTreeFind(0, 1)<CR>
+nnoremap <silent><buffer> [f <Cmd>call g:SimpleRemoteTreeFind(0, -1)<CR>
+nnoremap <silent><buffer> ]b <Cmd>call g:SimpleRemoteTreeBookmarkCycle(1)<CR>
+nnoremap <silent><buffer> [b <Cmd>call g:SimpleRemoteTreeBookmarkCycle(-1)<CR>
+nnoremap <silent><buffer> z <Cmd>call g:SimpleRemoteTreeCollapseAll()<CR>
+nnoremap <silent><buffer> ' <Cmd>call g:SimpleRemoteTreeBookmarkList()<CR>
+nnoremap <silent><buffer> <Space> <Cmd>call g:SimpleRemoteTreeMarkToggle()<CR>
+# Before any name is registered the panel derives one from the right hand
+# side, which is readable but no sentence -- the reason the plugin registers.
+assert_equal('call g:SimpleRemoteTreeMarkSiblings()',
+  simplewhichkey#Keys('n', 'g').m.desc)
+assert_equal('map', simplewhichkey#Keys('n', 'g').m.source,
+  'a buffer-local mapping is listed as a mapping')
+simplewhichkey#Describe({
+  gs: 'reverse sort', gm: 'mark siblings', gM: 'clear marks',
+  gy: 'copy file contents', gd: 'download to local tree',
+  gu: 'upload local file here',
+  ']f': 'next find match', '[f': 'previous find match',
+  ']b': 'next bookmark', '[b': 'previous bookmark',
+}, 'n', true)
+var tree_g = simplewhichkey#Keys('n', 'g')
+assert_equal('reverse sort', tree_g.s.desc)
+assert_equal('mark siblings', tree_g.m.desc)
+assert_equal('clear marks', tree_g.M.desc)
+assert_equal('copy file contents', tree_g.y.desc)
+assert_equal('download to local tree', tree_g.d.desc)
+assert_equal('upload local file here', tree_g.u.desc)
+assert_equal('map', tree_g.s.source)
+# The built-in g commands the tree does not take are still listed alongside.
+assert_equal('first-line', tree_g.g.desc,
+  'built-in commands must survive next to the buffer-local names')
+var tree_next = simplewhichkey#Keys('n', ']')
+assert_equal('next find match', tree_next.f.desc)
+assert_equal('next bookmark', tree_next.b.desc)
+var tree_prev = simplewhichkey#Keys('n', '[')
+assert_equal('previous find match', tree_prev.f.desc)
+assert_equal('previous bookmark', tree_prev.b.desc)
+# The buffer-local mapping on a hooked prefix simply wins in that buffer: no
+# panel opens for z, ' or <Space> there, and the global hook stays underneath.
+assert_match('SimpleRemoteTreeMarkToggle', maparg('<Space>', 'n'),
+  'the buffer-local <Space> must shadow the leader hook in its buffer')
+assert_equal(1, get(maparg('<Space>', 'n', 0, 1), 'buffer', 0))
+assert_match('SimpleRemoteTreeCollapseAll', maparg('z', 'n'))
+assert_match('SimpleRemoteTreeBookmarkList', maparg("'", 'n'))
+# (tests/vim_keys.vim opens the real panel over the same buffer and selects
+# a key from it.)  Names stay in the buffer they were registered in ...
+var other_buf = bufadd('')
+bufload(other_buf)
+execute 'buffer ' .. other_buf
+# gs is also Vim's own :sleep and ]f its own "edit file under cursor", so
+# what must come back here is the built-in entry, not an absent one.
+assert_equal('builtin', simplewhichkey#Keys('n', 'g').s.source,
+  'the tree mapping escaped its buffer')
+assert_equal('sleep', simplewhichkey#Keys('n', 'g').s.desc)
+assert_equal('builtin', simplewhichkey#Keys('n', ']').f.source,
+  'the tree mapping escaped its buffer')
+assert_match('simplewhichkey#Start', maparg('<Space>', 'n'),
+  'the leader hook must be back outside the tree buffer')
+execute 'buffer ' .. tree_buf
+assert_equal('reverse sort', simplewhichkey#Keys('n', 'g').s.desc,
+  'the names must still be there when the buffer is current again')
+# ... and die with it, the same as its mappings do (the real tree buffer is
+# bufhidden=wipe, so this is what closing it does).
+execute 'buffer ' .. other_buf
+execute 'bwipe! ' .. tree_buf
+execute 'bwipe! ' .. other_buf
+assert_equal('sleep', simplewhichkey#Keys('n', 'g').s.desc)
+assert_equal('builtin', simplewhichkey#Keys('n', ']').f.source)
+
+# --------------------------------------------- names by right hand side ---
+
+# A plugin knows its <Plug> targets and nothing about the keys a user will put
+# on them, so it names the target once and every mapping onto it reads as that
+# name: in any mode, under any prefix, however the right hand side was spelt.
+nnoremap <silent> <Plug>(simpleremote-open) <Cmd>echo 'open'<CR>
+nnoremap <silent> <Plug>(simpleremote-connect) <Cmd>echo 'connect'<CR>
+nnoremap <silent> <Plug>(simpleremote-status) <Cmd>echo 'status'<CR>
+nmap <leader>Ro <Plug>(simpleremote-open)
+nmap <leader>Rc <plug>(simpleremote-connect)
+nmap <leader>Rs <Plug>(simpleremote-status)
+nmap gR <Plug>(simpleremote-open)
+xmap <leader>Ro <Plug>(simpleremote-open)
+var remote = simplewhichkey#Keys('n', '<leader>R')
+assert_equal('simpleremote-open', remote.o.desc,
+  'without a registration the target itself is the name')
+assert_equal('+simpleremote', simplewhichkey#Keys('n', '<leader>').R.desc)
+simplewhichkey#DescribePlug({
+  '<Plug>(simpleremote-open)': 'remote workspaces',
+  '<PLUG>(simpleremote-connect)': 'connect',
+})
+remote = simplewhichkey#Keys('n', '<leader>R')
+assert_equal('remote workspaces', remote.o.desc)
+assert_equal('connect', remote.c.desc,
+  'the spelling of <Plug> on either side must not matter')
+assert_equal('simpleremote-status', remote.s.desc,
+  'a target nobody named keeps its derived text')
+assert_equal('map', remote.o.source)
+assert_equal('remote workspaces', simplewhichkey#Keys('n', 'g').R.desc,
+  'the name follows the target under any prefix')
+assert_equal('remote workspaces', simplewhichkey#Keys('x', '<leader>R').o.desc,
+  'the name follows the target in any mode')
+# The group is still named after what its keys point at, so it stays
+# '+simpleremote' however each of them was named.
+assert_equal('+simpleremote', simplewhichkey#Keys('n', '<leader>').R.desc,
+  'a derived group name must come from the targets, not from their names')
+# A name for the keys themselves still wins over one for the target, and a
+# buffer name over both.
+simplewhichkey#Describe({'<leader>Ro': 'my open'})
+assert_equal('my open', simplewhichkey#Keys('n', '<leader>R').o.desc)
+assert_equal('remote workspaces', simplewhichkey#Keys('n', 'g').R.desc,
+  'naming one lhs must not rename the target elsewhere')
+simplewhichkey#Describe({'<leader>Ro': 'here only'}, 'n', true)
+assert_equal('here only', simplewhichkey#Keys('n', '<leader>R').o.desc)
+unlet b:simplewhichkey_descriptions
+unlet b:simplewhichkey_groups
+# Any right hand side may be named, not only a <Plug>.
+nnoremap <leader>Rf :Files<CR>
+simplewhichkey#DescribePlug({':Files<cr>': 'find files'})
+assert_equal('find files', simplewhichkey#Keys('n', '<leader>R').f.desc)
+# An empty description drops one entry.
+simplewhichkey#DescribePlug({'<Plug>(simpleremote-open)': ''})
+assert_equal('simpleremote-open', simplewhichkey#Keys('n', 'g').R.desc,
+  'an empty description must drop the entry')
+assert_equal('connect', simplewhichkey#Keys('n', '<leader>R').c.desc,
+  'dropping one entry must not touch its neighbours')
+assert_match('descriptions   : .* 2 by target', execute('SimpleWhichKeyHealth'))
+# Forget() drops the names by target along with the names by key.
+simplewhichkey#Forget()
+assert_equal('simpleremote-connect', simplewhichkey#Keys('n', '<leader>R').c.desc,
+  'Forget() must drop the names by target as well')
+assert_equal('Files', simplewhichkey#Keys('n', '<leader>R').f.desc)
+nunmap <leader>Ro
+nunmap <leader>Rc
+nunmap <leader>Rs
+nunmap <leader>Rf
+nunmap gR
+xunmap <leader>Ro
+nunmap <Plug>(simpleremote-open)
+nunmap <Plug>(simpleremote-connect)
+nunmap <Plug>(simpleremote-status)
+
 # ------------------------------------------------------------------ delay ---
 
 # One number still means the same wait everywhere.

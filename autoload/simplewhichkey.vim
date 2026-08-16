@@ -43,6 +43,14 @@ var hooks: dict<list<string>> = {}
 # mode -> raw sequence -> description, from Register()/Describe().
 var descriptions: dict<dict<string>> = {}
 var group_names: dict<dict<string>> = {}
+# Canonical right hand side -> description, from DescribePlug().  Keyed by
+# what a mapping does rather than by what it is typed as, so a plugin can name
+# its <Plug> targets once without knowing which keys the user put on them.
+var plug_descriptions: dict<string> = {}
+# Raw rhs as maplist() reports it -> its canonical form.  A miss in the plug
+# registry is the common case and has to be proven for every mapping of a
+# level, so the proof is remembered rather than repeated on each keystroke.
+var plug_keys: dict<string> = {}
 
 var active = false
 var suspended_modes: dict<bool> = {}
@@ -201,10 +209,50 @@ enddef
 # Descriptions
 # ---------------------------------------------------------------------------
 
+# One spelling for a right hand side.  maplist() reports the rhs as it was
+# typed, so '<plug>(foo)', '<Plug>(foo)' and '<PLUG>(foo)' are three strings
+# for one target; keytrans() over the raw key codes gives them one name, and
+# it is the name a plugin registers under as well, so both sides of a lookup
+# agree without either having to know how the other spelt it.
+def PlugKey(rhs: string): string
+  if empty(rhs)
+    return ''
+  endif
+  return simplewhichkey#keys#Label(simplewhichkey#keys#Termcodes(rhs))
+enddef
+
+# The name registered for what a mapping does, or '' when nothing was.
+def PlugDescription(entry: dict<any>): string
+  if empty(plug_descriptions)
+    return ''
+  endif
+  var rhs = get(entry, 'rhs', '')
+  if empty(rhs)
+    return ''
+  endif
+  var key = get(plug_keys, rhs, '')
+  if empty(key)
+    key = PlugKey(rhs)
+    plug_keys[rhs] = key
+  endif
+  return get(plug_descriptions, key, '')
+enddef
+
 # What a mapping does, guessed from its right hand side.  This is what makes
 # an unregistered configuration useful on the first run: '<Cmd>SimpleGitDiff<CR>'
 # reads as 'SimpleGitDiff' and '<Plug>(simpletree-toggle)' as 'simpletree-toggle'.
-def DeriveDescription(entry: dict<any>, mode: string): string
+#
+# A name registered for the right hand side itself (DescribePlug()) beats the
+# guess, unless {named} is false: the shared beginning that names an unnamed
+# group is looked for in what the keys point at, so a group of mappings onto
+# <Plug>(simpleremote-*) stays '+simpleremote' however each of them was named.
+def DeriveDescription(entry: dict<any>, mode: string, named: bool = true): string
+  if named
+    var registered = PlugDescription(entry)
+    if !empty(registered)
+      return registered
+    endif
+  endif
   if get(entry, 'expr', 0)
     return 'expr: ' .. get(entry, 'rhs', '')
   endif
@@ -339,11 +387,39 @@ export def Describe(spec: dict<string>, mode: string = 'n', buffer: bool = false
   endfor
 enddef
 
-# Drops the global registry only: buffer-scoped names belong to the buffer and
-# die with it.
+# Names for what a mapping does rather than for the keys that do it:
+# {'<Plug>(simpleremote-open)': 'remote workspaces'}.  A plugin knows its own
+# <Plug> targets and nothing about the keys a user will put on them, so this
+# is the form in which it can name them once, and every mapping onto that
+# target -- in any mode, under any prefix -- reads as the name in the panel.
+# A description registered for the mapping's own keys with Describe() still
+# wins, and an empty description drops the entry.
+#
+# The right hand side is compared by what it means: '<plug>(foo)' and
+# '<Plug>(foo)' are the same key.  Any right hand side may be named this way,
+# not only a <Plug>; ':Files<CR>' works as well.
+export def DescribePlug(spec: dict<string>)
+  for [rhs, description] in items(spec)
+    var key = PlugKey(rhs)
+    if empty(key)
+      continue
+    endif
+    if empty(description)
+      if has_key(plug_descriptions, key)
+        remove(plug_descriptions, key)
+      endif
+    else
+      plug_descriptions[key] = description
+    endif
+  endfor
+enddef
+
+# Drops the global registries only -- names by key sequence and names by right
+# hand side alike: buffer-scoped names belong to the buffer and die with it.
 export def Forget()
   descriptions = {}
   group_names = {}
+  plug_descriptions = {}
 enddef
 
 # ---------------------------------------------------------------------------
@@ -489,7 +565,9 @@ def CollectMappings(level: dict<any>, mode: string, sequence: string)
       var rest = strpart(raw, strlen(sequence))
       var key = simplewhichkey#keys#First(rest)
       var leaf = strlen(key) == strlen(rest)
-      var derived = DeriveDescription(entry, mode)
+      # A leaf shows its name; a mapping below a group only lends what it
+      # points at to the group's derived name, so that stays the plain guess.
+      var derived = DeriveDescription(entry, mode, leaf)
       AddNode(level, key, leaf ? derived : '', !leaf, 'map', leaf ? '' : derived)
     endfor
   endfor
@@ -1531,8 +1609,8 @@ export def Health()
   for registered in values(group_names)
     group_count += len(registered)
   endfor
-  add(lines, printf('  descriptions   : %d entries, %d groups',
-    description_count, group_count))
+  add(lines, printf('  descriptions   : %d entries, %d groups, %d by target',
+    description_count, group_count, len(plug_descriptions)))
   var shadowed = 0
   var unknown = 0
   for mode in keys(hooks)

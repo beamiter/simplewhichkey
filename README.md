@@ -208,6 +208,23 @@ another filetype, and one global registry cannot say so.
 call simplewhichkey#Describe({'<leader>r': 'cargo run'}, 'n', v:true)
 ```
 
+A third form names what a mapping *does* rather than the keys that do it:
+
+```vim
+call simplewhichkey#DescribePlug({
+      \ '<Plug>(simpleremote-open)':    'remote workspaces',
+      \ '<Plug>(simpleremote-connect)': 'connect',
+      \ })
+```
+
+Every mapping onto that target — in any mode, under any prefix, however you
+spelt `<Plug>` — reads as the name. This is the form a plugin uses to name its
+own `<Plug>` mappings once, since it knows those and nothing about the keys you
+will put on them; any right hand side works, not only a `<Plug>`, and an empty
+description drops the entry. The registries stack by how much each knows: a
+buffer name beats a global name for the keys, which beats a name for the
+target, which beats anything derived.
+
 Most of the time you should not need any of this. A mapping onto one of Vim's
 own commands takes that command's name — `<leader>w=` mapped to `<C-w>=` reads
 as `equalize-sizes`, an `omap` onto `iw` as `inner-word` — and a group nobody
@@ -217,6 +234,31 @@ named is named after its children when they agree: three mappings to
 satisfy, because a group should be named after what its keys are about and not
 after a word they happen to start with; `g:simplewhichkey_derive = 0` turns
 both off.
+
+### Other plugins
+
+Nothing else is required, but the panel lists what other plugins install and
+they can name it:
+
+- Buffer-local mappings are collected on every panel open, so a plugin buffer
+  that maps its own keys with `nnoremap <silent><buffer>` has them listed in
+  that buffer — SimpleRemote's tree buffer maps `gs`, `gm`, `gM`, `gy`, `gd`,
+  `gu`, `]f`, `[f`, `]b` and `[b`, and they show up under `g`, `]` and `[`
+  there. Calling `simplewhichkey#Describe(..., 'n', v:true)` while that buffer
+  is current turns the derived `call g:SimpleRemoteTreeSortReverse()` into
+  `reverse sort`, and the names go with the buffer, as the mappings do. A
+  buffer mapping on a hooked prefix itself (the tree's `z` and `'`) simply
+  wins in that buffer: no panel opens for it there, and the global hook stays
+  underneath.
+- `<Plug>` mappings are named once with `simplewhichkey#DescribePlug()`;
+  whatever keys you map onto them show that name. Both are ordinary autoload
+  calls, so a plugin guards them with `exists('*simplewhichkey#DescribePlug')`
+  — which is 0 until this plugin's autoload has been sourced from
+  `plugin/simplewhichkey.vim` at startup, so a plugin file sourced before it
+  should defer the call to `VimEnter`.
+
+Selection replays the chosen keys with `feedkeys()`, so a plugin's mapping keeps
+its own semantics whether it is `<silent>`, `<buffer>`, `<Cmd>` or `<Plug>`.
 
 ## Commands
 

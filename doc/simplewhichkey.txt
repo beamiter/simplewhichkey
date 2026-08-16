@@ -14,6 +14,7 @@ CONTENTS                                             *simplewhichkey-contents*
        While typing .............. |simplewhichkey-insert|
     5. Options ................... |simplewhichkey-options|
     6. Descriptions .............. |simplewhichkey-descriptions|
+       Other plugins ............. |simplewhichkey-plugins|
     7. Commands .................. |simplewhichkey-commands|
     8. Functions ................. |simplewhichkey-functions|
     9. Highlights ................ |simplewhichkey-highlights|
@@ -345,10 +346,68 @@ so. >
     call simplewhichkey#Describe({'<leader>r': 'cargo run'}, 'n', v:true)
 <
 Buffer names win over global ones for that buffer, and die with it.
-|simplewhichkey#Forget()| drops the global registry only.
+|simplewhichkey#Forget()| drops the global registries only.
+
+A third form names what a mapping does rather than the keys that do it: >
+    call simplewhichkey#DescribePlug({
+          \ '<Plug>(simpleremote-open)':    'remote workspaces',
+          \ '<Plug>(simpleremote-connect)': 'connect',
+          \ })
+<
+Every mapping whose right hand side is that target -- in any mode, under any
+prefix, however you spelt "<Plug>" -- reads as the name in the panel.  This
+is the form a plugin uses to name its own <Plug> mappings once, since it knows
+those and nothing about the keys you will put on them; see
+|simplewhichkey-plugins|.  Any right hand side may be named this way, not only
+a <Plug>: ':Files<CR>' works too.  An empty description drops the entry.
+
+The three registries stack in the order of how much each knows about the
+buffer: a buffer name wins over a global name for the keys, which wins over a
+name for the target, which wins over anything derived.  A group nobody named
+is still named after what its keys point at, so mappings onto
+<Plug>(simpleremote-open) and <Plug>(simpleremote-connect) make the group
+"+simpleremote" whatever each of them was named (see below).
 
 Descriptions you never write are derived from the mapping itself; see
 |g:simplewhichkey_derive| for how hard the plugin tries.
+
+OTHER PLUGINS                                          *simplewhichkey-plugins*
+
+Nothing else in the suite is needed, but a plugin that installs mappings can
+name them for the panel with the two forms above, and the panel lists what
+they install without any of that:
+
+    buffer-local mappings   are collected on every panel open, so a plugin
+                            buffer that maps its own keys with
+                            `nnoremap <silent><buffer>` -- SimpleRemote's
+                            tree buffer maps gs, gm, gM, gy, gd, gu, ]f, [f,
+                            ]b and [b this way -- has them listed under g, ]
+                            and [ in that buffer, with a description derived
+                            from the right hand side.  Calling
+                            |simplewhichkey#Describe()| with {buffer} true
+                            while that buffer is current replaces the derived
+                            text ("call g:SimpleRemoteTreeSortReverse()") with
+                            a name ("reverse sort"), and the names go away
+                            with the buffer, as the mappings do.  A buffer
+                            mapping on a hooked prefix itself (the tree's z
+                            and ', or its <Space> when that is your leader)
+                            simply wins in that buffer: no panel opens for it
+                            there, and the global hook stays in place
+                            underneath.
+    <Plug> mappings         are named with |simplewhichkey#DescribePlug()|,
+                            which a plugin calls once for its own targets.
+                            Whatever keys you then map onto them show that
+                            name.  Both calls are ordinary autoload calls, so
+                            a plugin guards them with
+                            `exists('*simplewhichkey#DescribePlug')`; that is
+                            0 until this plugin's autoload has been sourced,
+                            which happens from plugin/simplewhichkey.vim at
+                            startup -- a plugin file sourced before it (they
+                            load alphabetically) should defer the call to
+                            |VimEnter|.
+
+Selection replays the chosen keys with |feedkeys()|, so a plugin's mapping
+keeps its own semantics whether it is <silent>, <buffer>, <Cmd> or <Plug>.
 
 ==============================================================================
 7. COMMANDS                                          *simplewhichkey-commands*
@@ -413,8 +472,11 @@ Descriptions you never write are derived from the mapping itself; see
 :SimpleWhichKeyHealth       Report the state of every hooked prefix: whether
                             the hook is in place or taken by another mapping,
                             how many mappings and built-ins it lists, and the
-                            delay it resolves to.  Ends with a one line
-                            summary of |:SimpleWhichKeyConflicts|.
+                            delay it resolves to.  Also counts what is
+                            registered: descriptions and groups by key
+                            sequence, and names by target
+                            (|simplewhichkey#DescribePlug()|).  Ends with a
+                            one line summary of |:SimpleWhichKeyConflicts|.
 
                                                      *:SimpleWhichKeyConflicts*
 :SimpleWhichKeyConflicts    Three questions the plugin can answer because it
@@ -448,9 +510,15 @@ simplewhichkey#Describe({dict} [, {mode}] [, {buffer}])
                                                    *simplewhichkey#Describe()*
 simplewhichkey#Register({prefix}, {spec} [, {mode}])
                                                    *simplewhichkey#Register()*
+simplewhichkey#DescribePlug({dict})             *simplewhichkey#DescribePlug()*
 simplewhichkey#Forget()                              *simplewhichkey#Forget()*
-        See |simplewhichkey-descriptions|.  Forget() drops every registered
-        description.
+        See |simplewhichkey-descriptions|.  DescribePlug() names right hand
+        sides ({'<Plug>(name)': 'text'}) rather than key sequences; an empty
+        text drops the entry, and a target nothing is mapped onto is not an
+        orphan (a plugin registers its names before you map anything onto
+        them), so |simplewhichkey#Orphans()| never lists one.  Forget() drops
+        every global registration, by key sequence and by right hand side
+        alike; buffer names stay with their buffer.
 
 simplewhichkey#Start({prefix} [, {mode}])             *simplewhichkey#Start()*
         Open the panel for {prefix}.  This is what the hooks call.
