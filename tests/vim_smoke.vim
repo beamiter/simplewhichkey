@@ -905,8 +905,9 @@ assert_equal(['e', 'f'], sort(keys(simplewhichkey#Keys('n', '<leader>'))),
   'a literal trailing * was read as a glob and hid its siblings')
 var quoted = sort(keys(simplewhichkey#Keys('n', '"')))
 g:simplewhichkey_ignore = ['"+', '"*']
-assert_equal(quoted, sort(keys(simplewhichkey#Keys('n', '"'))),
-  'hiding the clipboard registers emptied the whole register panel')
+var quoted_without_clipboard = quoted->filter((_, key) => key !=# '+' && key !=# '*')
+assert_equal(quoted_without_clipboard, sort(keys(simplewhichkey#Keys('n', '"'))),
+  'hiding the clipboard registers also hid their siblings')
 # Two stars is the glob, and it still reaches the sibling one star left alone.
 g:simplewhichkey_ignore = ['<leader>**']
 assert_equal([], sort(keys(simplewhichkey#Keys('n', '<leader>'))),

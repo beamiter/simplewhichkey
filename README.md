@@ -176,6 +176,10 @@ let g:simplewhichkey_hide_aliases = 1   " hide <C-w><C-v> when <C-w>v is listed
 let g:simplewhichkey_ignore = ['<leader>1', '<leader>2']
 ```
 
+Prefix tables are normalized by supported mode and non-empty string entry. If
+nothing usable remains, the complete default table is restored instead of
+silently installing no hooks.
+
 ### Better descriptions
 
 Descriptions are optional — `<Cmd>SimpleGitDiff<CR>` reads as `SimpleGitDiff` on

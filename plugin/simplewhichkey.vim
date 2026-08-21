@@ -86,8 +86,12 @@ def Prefixes(value: any, fallback: dict<list<string>>): dict<any>
   endif
   var out: dict<any> = {}
   for [mode, list] in items(value)
-    if type(list) == v:t_list
-      out[mode] = list
+    if index(['n', 'x', 'o', 'i', 'c'], mode) < 0 || type(list) != v:t_list
+      continue
+    endif
+    var clean = filter(copy(list), (_, item) => type(item) == v:t_string && !empty(item))
+    if !empty(clean)
+      out[mode] = clean
     endif
   endfor
   return empty(out) ? fallback : out
