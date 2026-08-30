@@ -1,7 +1,7 @@
-.PHONY: check test test-vim test-config test-scale test-keys defcompile doc-tags clean
+.PHONY: check test test-vim test-config test-scale test-interrupt test-keys defcompile doc-tags clean
 
 # The full gate, in the order that fails fastest.
-check: doc-tags defcompile test-vim test-config test-scale test-keys
+check: doc-tags defcompile test-vim test-config test-scale test-interrupt test-keys
 
 # Vim help uses *word* as a global tag definition, not Markdown emphasis.
 # Generate tags in a scratch directory so the gate catches accidental prose
@@ -35,6 +35,11 @@ test-config:
 # can invent.
 test-scale:
 	vim -N -u NONE -n -i NONE -es -S tests/vim_scale.vim
+
+# interrupt() is portable and exercises the same Vim:Interrupt path as CTRL-C
+# without needing a platform-specific `kill` command or a terminal driver.
+test-interrupt:
+	vim -N -u NONE -n -i NONE -es -S tests/vim_interrupt.vim
 
 # Real keystrokes need a pty.
 test-keys:

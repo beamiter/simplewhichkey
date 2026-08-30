@@ -1070,13 +1070,19 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
   active = true
   var sequence = raw_prefix
   var stack: list<string> = []
-  # Nothing installs or removes a mapping between here and the choice, so one
-  # sweep answers every Level() and Ambiguous() of the whole session.
-  OpenSnapshot()
-  var pending = PollKey(InitialDelay(mode, raw_prefix))
+  var pending = ''
   var aborted = false
+  var snapshot_open = false
 
   try
+    # Nothing installs or removes a mapping between here and the choice, so one
+    # sweep answers every Level() and Ambiguous() of the whole session.  Both
+    # opening it and the initial sleep belong inside this try: CTRL-C can
+    # interrupt PollKey(), and an escaped interrupt must not pin `active` or a
+    # stale mapping snapshot for the rest of the Vim process.
+    OpenSnapshot()
+    snapshot_open = true
+    pending = PollKey(InitialDelay(mode, raw_prefix))
     # What may follow the sequence can only change when the sequence does.
     # Rebuilding it once per pass meant a scroll wheel tick, a page key or a
     # stray mouse event -- none of which moves the sequence -- read every
@@ -1135,11 +1141,17 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
   catch /^Vim:Interrupt$/
     aborted = true
   finally
-    simplewhichkey#panel#Close()
-    active = false
-    # Before the caller suspends hooks, which is a change to the very table
-    # the snapshot froze.
-    CloseSnapshot()
+    try
+      simplewhichkey#panel#Close()
+    finally
+      active = false
+      # Before the caller suspends hooks, which is a change to the very table
+      # the snapshot froze.  The guard also covers an interrupt while the
+      # initial maplist() sweep itself is still opening the snapshot.
+      if snapshot_open
+        CloseSnapshot()
+      endif
+    endtry
   endtry
 
   return {aborted: aborted, sequence: sequence}
