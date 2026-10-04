@@ -7,13 +7,14 @@ check: doc-tags defcompile test-vim test-config test-scale test-interrupt test-k
 # Generate tags in a scratch directory so the gate catches accidental prose
 # tags.  doc/tags is installation output in this repository and is ignored.
 doc-tags:
-	@tmp=$$(mktemp -d) && cp doc/*.txt $$tmp/ && \
-	vim -Nu NONE -n -i NONE -es -c "helptags $$tmp" -c 'qa!' </dev/null && \
+	@set -eu; tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' 0; \
+	cp doc/*.txt "$$tmp/"; \
+	DOC_TAGS_TMP="$$tmp" vim -Nu NONE -n -i NONE -es \
+	  -c 'execute "helptags " .. fnameescape($$DOC_TAGS_TMP)' -c 'qa!' </dev/null; \
 	status=0; \
-	foreign=$$(awk -F'\t' '$$1 !~ /^(simplewhichkey|g:simplewhichkey|:SimpleWhichKey|<Plug>\(simplewhichkey)/ { print $$1 }' $$tmp/tags); \
+	foreign=$$(awk -F'\t' '$$1 !~ /^(simplewhichkey|g:simplewhichkey|:SimpleWhichKey|<Plug>\(simplewhichkey)/ { print $$1 }' "$$tmp/tags"); \
 	if [ -n "$$foreign" ]; then \
 	  echo "doc: *word* in prose defined a global help tag: $$foreign" >&2; status=1; fi; \
-	rm -rf $$tmp; \
 	[ $$status -eq 0 ] && echo "doc: help tags are valid and plugin-scoped"
 
 # -i NONE everywhere: the register tests read what is actually in the
