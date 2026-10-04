@@ -17,6 +17,10 @@ execute 'source ' .. fnameescape(ROOT .. '/plugin/simplewhichkey.vim')
 # --------------------------------------------------------------- notation ---
 
 assert_equal(' ', simplewhichkey#keys#Termcodes('<leader>'))
+g:mapleader = 32
+assert_equal(' ', simplewhichkey#keys#Termcodes('<leader>'),
+  'a numeric mapleader was not expanded')
+g:mapleader = ' '
 assert_equal(',', simplewhichkey#keys#Termcodes('<localleader>'))
 assert_equal("\<C-w>", simplewhichkey#keys#Termcodes('<C-w>'))
 assert_equal(' ff', simplewhichkey#keys#Termcodes('<leader>ff'))
@@ -73,6 +77,28 @@ assert_match('Paging \[2/[2-9][0-9]* PgUp/PgDn\]',
 assert_true(simplewhichkey#panel#Scroll(-1))
 simplewhichkey#panel#Close()
 g:simplewhichkey_max_height = 0
+
+# Runtime option types the panel used to compare as numbers: a string height
+# threw E1030 out of Layout() and a numeric position did the same in
+# PopupOptions().
+g:simplewhichkey_max_height = 'tall'
+g:simplewhichkey_max_desc_width = 'wide'
+g:simplewhichkey_separator = 3
+g:simplewhichkey_position = 1
+g:simplewhichkey_border = 'yes'
+try
+  simplewhichkey#panel#Show('Safe', [
+    {label: 'a', desc: 'alpha', group: false},
+  ], "n\x01safe")
+catch
+  assert_report('panel threw on typed options: ' .. v:exception)
+endtry
+simplewhichkey#panel#Close()
+g:simplewhichkey_max_height = 0
+g:simplewhichkey_max_desc_width = 30
+g:simplewhichkey_separator = ' → '
+g:simplewhichkey_position = 'bottom'
+g:simplewhichkey_border = 1
 
 # A description is truncated to a display-column budget, not to a character
 # count.  A double-width description that escapes truncation overflows its

@@ -39,6 +39,11 @@ All notable changes to SimpleWhichKey are documented here.
 
 ### Fixed
 
+- 运行时把 `g:simplewhichkey_enable` 设成布尔值不再被当成“未识别类型”而退回默认开启；`v:false` 会真正卸掉 hook。
+- 面板在 `g:simplewhichkey_max_height` / `max_desc_width` / `separator` / `position` / `border` 被赋成错误类型时不再抛 `E1030`，而是退回文档里的默认。
+- `g:simplewhichkey_delay` 在运行时仍受 0..5000 ms 上限约束，字典表里的 `default` 和按前缀覆盖的值同样截断。
+- 数字形式的 `mapleader` / `maplocalleader`（Vim 允许的 `nr2char` 码）会展开 `<leader>`，而不再把字面量留给面板。
+
 - The register panel no longer reads whole registers to show thirty
   characters of them. `"` lists every register that has anything in it, and
   each preview ran three `substitute()` passes over the entire body before

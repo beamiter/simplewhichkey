@@ -147,6 +147,9 @@ const MIN_DESC_WIDTH = 10
 # run out.  Descriptions shrink before a second page becomes necessary.
 def Layout(entries: list<dict<any>>, available: number, requested_page: number): dict<any>
   var separator = get(g:, 'simplewhichkey_separator', ' → ')
+  if type(separator) != v:t_string
+    separator = ' → '
+  endif
   var separator_width = strdisplaywidth(separator)
   var key_width = 0
   var natural_desc = 0
@@ -154,9 +157,16 @@ def Layout(entries: list<dict<any>>, available: number, requested_page: number):
     key_width = max([key_width, strdisplaywidth(entry.label)])
     natural_desc = max([natural_desc, strdisplaywidth(entry.desc)])
   endfor
-  natural_desc = min([natural_desc, max([MIN_DESC_WIDTH, get(g:, 'simplewhichkey_max_desc_width', 30)])])
+  var desc_cap = get(g:, 'simplewhichkey_max_desc_width', 30)
+  if type(desc_cap) != v:t_number
+    desc_cap = 30
+  endif
+  natural_desc = min([natural_desc, max([MIN_DESC_WIDTH, desc_cap])])
 
   var max_height = get(g:, 'simplewhichkey_max_height', 0)
+  if type(max_height) != v:t_number
+    max_height = 0
+  endif
   if max_height <= 0
     max_height = max([4, &lines / 2 - 2])
   endif
@@ -253,7 +263,9 @@ def Fitting(): bool
   # A cursor-relative panel that claims the whole screen is just a bar drawn in
   # a strange place: Vim shifts it back against the left edge and it covers the
   # text the hint is about.  Fit it unless a width was actually asked for.
-  return width == 0 && get(g:, 'simplewhichkey_position', 'bottom') ==# 'cursor'
+  var pos = get(g:, 'simplewhichkey_position', 'bottom')
+  return type(width) == v:t_number && width == 0
+    && type(pos) == v:t_string && pos ==# 'cursor'
 enddef
 
 const BORDER_CHARS = ['─', '│', '─', '│', '╭', '╮', '╯', '╰']
@@ -267,7 +279,13 @@ const PADDING = [0, 1, 0, 1]
 # two border and two padding columns on top, so on an 80 column terminal it
 # drew an 82 column frame whose right border Vim clipped away off-screen.
 def Frame(): dict<any>
-  var border = get(g:, 'simplewhichkey_border', 1) ? [1, 1, 1, 1] : [0, 0, 0, 0]
+  var border_on = get(g:, 'simplewhichkey_border', 1)
+  if type(border_on) == v:t_bool
+    border_on = border_on ? 1 : 0
+  elseif type(border_on) != v:t_number
+    border_on = 1
+  endif
+  var border = border_on ? [1, 1, 1, 1] : [0, 0, 0, 0]
   return {
     border: border,
     borderchars: BORDER_CHARS,
@@ -311,6 +329,10 @@ enddef
 
 def PopupOptions(title: string, height: number, frame: dict<any>, width: number): dict<any>
   var position = get(g:, 'simplewhichkey_position', 'bottom')
+  if type(position) != v:t_string
+        || index(['bottom', 'top', 'center', 'cursor'], position) < 0
+    position = 'bottom'
+  endif
   var options = {
     line: 0,
     col: 1,

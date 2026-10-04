@@ -136,7 +136,13 @@ enddef
 
 def Flag(name: string, fallback: number): number
   var value = get(g:, name, fallback)
-  return type(value) == v:t_number ? (value != 0 ? 1 : 0) : fallback
+  if type(value) == v:t_bool
+    return value ? 1 : 0
+  endif
+  if type(value) == v:t_number
+    return value != 0 ? 1 : 0
+  endif
+  return fallback
 enddef
 
 def MapCommand(mode: string): string
@@ -1018,7 +1024,7 @@ enddef
 def ConfiguredDelay(mode: string, sequence: string): number
   var configured = get(g:, 'simplewhichkey_delay', 200)
   if type(configured) == v:t_number
-    return configured >= 0 ? configured : 200
+    return min([5000, max([0, configured])])
   endif
   if type(configured) != v:t_dict
     return 200
@@ -1030,8 +1036,9 @@ def ConfiguredDelay(mode: string, sequence: string): number
     if type(value) != v:t_number || value < 0
       continue
     endif
+    var clamped = min([5000, value])
     if key ==# 'default'
-      fallback = value
+      fallback = clamped
       continue
     endif
     var notation = key
@@ -1046,9 +1053,9 @@ def ConfiguredDelay(mode: string, sequence: string): number
       continue
     endif
     if qualifies
-      scoped = value
+      scoped = clamped
     else
-      plain = value
+      plain = clamped
     endif
   endfor
   if scoped >= 0

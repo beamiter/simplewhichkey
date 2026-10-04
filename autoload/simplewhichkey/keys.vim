@@ -34,6 +34,12 @@ export def Termcodes(notation: string): string
   var text = notation
   var leader = get(g:, 'mapleader', '\')
   var localleader = get(g:, 'maplocalleader', '\')
+  if type(leader) == v:t_number
+    leader = leader >= 0 && leader < 256 ? nr2char(leader) : '\'
+  endif
+  if type(localleader) == v:t_number
+    localleader = localleader >= 0 && localleader < 256 ? nr2char(localleader) : '\'
+  endif
   if type(leader) == v:t_string
     text = substitute(text, '\c<leader>', escape(leader, '\&~'), 'g')
   endif

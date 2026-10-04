@@ -23,6 +23,21 @@ assert_equal(0, g:simplewhichkey_width)
 assert_equal([], g:simplewhichkey_ignore)
 assert_match('simplewhichkey#Start', maparg('g', 'n'))
 
+g:simplewhichkey_enable = v:false
+simplewhichkey#Setup()
+assert_equal('', maparg('g', 'n'),
+  'a bool g:simplewhichkey_enable = v:false was ignored')
+g:simplewhichkey_enable = v:true
+simplewhichkey#Setup()
+assert_match('simplewhichkey#Start', maparg('g', 'n'))
+
+g:simplewhichkey_delay = 99999
+assert_equal(5000, simplewhichkey#ResolvedDelay('n', 'g'),
+  'a delay past 5000 ms was not clamped')
+g:simplewhichkey_delay = {default: 8000, 'n:g': 9000}
+assert_equal(5000, simplewhichkey#ResolvedDelay('n', 'g'))
+g:simplewhichkey_delay = 200
+
 if !empty(v:errors)
   writefile(v:errors, root .. '/tests/config-errors.log')
   cquit!
