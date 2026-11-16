@@ -1080,6 +1080,9 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
   var pending = ''
   var aborted = false
   var snapshot_open = false
+  var origin_window = win_getid()
+  var origin_buffer = bufnr()
+  var origin_tick = b:changedtick
 
   try
     # Nothing installs or removes a mapping between here and the choice, so one
@@ -1098,6 +1101,11 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
     var level = Level(mode, sequence)
     var built = sequence
     while true
+      if win_getid() != origin_window || bufnr() != origin_buffer
+          || b:changedtick != origin_tick
+        aborted = true
+        break
+      endif
       if built !=# sequence
         level = Level(mode, sequence)
         built = sequence
@@ -1112,6 +1120,14 @@ def SelectSequence(raw_prefix: string, mode: string): dict<any>
         simplewhichkey#panel#Show(
           Title(sequence), Entries(level), mode .. "\x01" .. sequence)
         pending = getcharstr()
+      endif
+      # Timers/autocommands can change the editing context while getcharstr()
+      # waits. Never replay a choice against a different buffer/window, or
+      # against text changed since the mapping snapshot was displayed.
+      if win_getid() != origin_window || bufnr() != origin_buffer
+          || b:changedtick != origin_tick
+        aborted = true
+        break
       endif
       var char = pending
       pending = ''

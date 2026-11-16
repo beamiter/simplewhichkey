@@ -62,7 +62,7 @@ No external program, no daemon, no other plugin.
 Because step 4 replays the keys instead of interpreting them, mappings keep
 their own semantics: <expr>, <ScriptCmd>, <Plug>, recursive, buffer-local,
 |:map-silent|, counts and registers all behave as they would without the
-plugin. Operator selection never cancels or reconstructs the pending state,
+plugin. Successful operator selection never reconstructs the pending state,
 so |g@| callbacks and 'unnamed'/'unnamedplus' mirroring remain native.
 
 When other mappings extend a prefix, Vim itself waits 'timeoutlen' before
@@ -79,6 +79,10 @@ faster.
     <PageUp>/<PageDown> previous/next overflow page; an explicit mapping wins
     mouse wheel         previous/next page when this level overflows
     <Esc>, CTRL-C       close the panel and run nothing
+
+If a timer or autocommand changes the current window, buffer, or buffer text
+while a selection is waiting, the choice is cancelled rather than replayed
+against the new editing context. Start the prefix again in the new context.
 
 Entries whose description starts with "+" are groups: more keys follow.
 When the grid cannot fit every entry, its title shows [page/total PgUp/PgDn].

@@ -57,6 +57,9 @@ test-keys:
 	SIMPLEWHICHKEY_TEST_CLIPBOARD=unnamed SIMPLEWHICHKEY_TEST_OUT="$$tmp/star" script -qec "stty cols 100 rows 30; vim -N -u NONE -n -i NONE -S tests/vim_operator_clipboard.vim" /dev/null >/dev/null || status=1; \
 	test -f "$$tmp/star" && cat "$$tmp/star" || status=1; \
 	grep -q '^PASS unnamed$$' "$$tmp/star" 2>/dev/null || status=1; \
+	SIMPLEWHICHKEY_TEST_OUT="$$tmp/context" script -qec "stty cols 100 rows 30; vim -N -u NONE -n -i NONE -S tests/vim_keys_context.vim" /dev/null >/dev/null || status=1; \
+	test -f "$$tmp/context" && cat "$$tmp/context" || status=1; \
+	grep -q '^PASS context$$' "$$tmp/context" 2>/dev/null || status=1; \
 	exit $$status
 
 test: test-vim test-config test-scale test-keys
