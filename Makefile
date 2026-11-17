@@ -60,6 +60,9 @@ test-keys:
 	SIMPLEWHICHKEY_TEST_OUT="$$tmp/context" script -qec "stty cols 100 rows 30; vim -N -u NONE -n -i NONE -S tests/vim_keys_context.vim" /dev/null >/dev/null || status=1; \
 	test -f "$$tmp/context" && cat "$$tmp/context" || status=1; \
 	grep -q '^PASS context$$' "$$tmp/context" 2>/dev/null || status=1; \
+	SIMPLEWHICHKEY_TEST_OUT="$$tmp/replay" script -qec "stty cols 100 rows 30; vim -N -u NONE -n -i NONE -S tests/vim_replay_order.vim" /dev/null >/dev/null || status=1; \
+	test -f "$$tmp/replay" && cat "$$tmp/replay" || status=1; \
+	grep -q '^PASS replay order$$' "$$tmp/replay" 2>/dev/null || status=1; \
 	exit $$status
 
 test: test-vim test-config test-scale test-keys

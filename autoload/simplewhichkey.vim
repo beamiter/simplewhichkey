@@ -965,7 +965,9 @@ def Feed(sequence: string, mode: string)
     Suspend('o')
   endif
   pending_feeds += 1
-  feedkeys(sequence, 'mt')
+  # Replay the selected prefix before keys already queued after the choice.
+  # Appending lets a following motion argument run before its <Plug> mapping.
+  feedkeys(sequence, 'mit')
   ScheduleRestore()
 enddef
 
